@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  findSafeDenialOption,
   isAuthorizedTelegramInput,
   isExpiredPermission,
   isPermissionCallbackContext,
@@ -71,5 +72,26 @@ describe('runtime security helpers', () => {
       true,
     );
     expect(isExpiredPermission({ createdAt: 'not-a-date' })).toBe(true);
+  });
+
+  it('selects a safe denial permission option when one is available', () => {
+    expect(
+      findSafeDenialOption([
+        { optionId: 'allow', kind: 'approve' },
+        { optionId: 'deny', name: 'Deny' },
+      ]),
+    ).toMatchObject({ optionId: 'deny' });
+    expect(
+      findSafeDenialOption([
+        { optionId: '1', kind: 'approve' },
+        { optionId: '2', kind: 'reject' },
+      ]),
+    ).toMatchObject({ optionId: '2' });
+    expect(
+      findSafeDenialOption([
+        { optionId: 'allow', kind: 'approve' },
+        { optionId: 'continue', name: 'Continue' },
+      ]),
+    ).toBeUndefined();
   });
 });

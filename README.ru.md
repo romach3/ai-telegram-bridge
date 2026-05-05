@@ -152,8 +152,9 @@ Bridge общается с ACP backends через newline-delimited JSON-RPC п
 Считайте bridge удалённым доступом к вашему локальному coding agent. Используйте
 свой Telegram bot token, не передавайте его другим и запускайте один bridge
 instance на один bot token. Если bridge нужен другому пользователю, создайте
-для него отдельного Telegram-бота. Подробные security notes лежат в
-`for-agents/security.md`.
+для него отдельного Telegram-бота. Управление поддерживается только в private
+chat с настроенным Telegram user; групповые чаты намеренно не поддерживаются.
+Подробные security notes лежат в `for-agents/security.md`.
 
 ## Для Разработчиков
 

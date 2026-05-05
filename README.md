@@ -153,7 +153,9 @@ is the UI.
 Treat the bridge as remote access to your local coding agent. Use your own
 Telegram bot token, keep it private, and run one bridge instance per bot token.
 If you want another user to run the bridge, create another Telegram bot for
-them. Detailed security notes live in `for-agents/security.md`.
+them. The control surface is a private chat with the configured Telegram user;
+group chats are intentionally unsupported. Detailed security notes live in
+`for-agents/security.md`.
 
 ## Developer Notes
 

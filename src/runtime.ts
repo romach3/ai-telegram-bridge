@@ -469,9 +469,22 @@ export class BridgeRuntime {
     }
     if (isExpiredPermission(permission)) {
       await takePermission(callbackKey);
+      const denialOption = findSafeDenialOption(permission.options);
+      if (denialOption) {
+        this.getBackend(
+          permission.backendId ?? this.config.defaultBackend,
+        ).respond(permission.id, {
+          outcome: {
+            outcome: 'selected',
+            optionId: denialOption.optionId,
+          },
+        });
+      }
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
-        text: 'Permission request expired.',
+        text: denialOption
+          ? 'Permission expired; sent safe denial.'
+          : 'Permission expired or bridge was restarted. Send /cancel if the turn is still waiting.',
       });
       if (permission.messageId) {
         await this.bot.deleteMessage({
@@ -1119,6 +1132,23 @@ export function isExpiredPermission(input: { createdAt: string }): boolean {
   const createdAt = Date.parse(input.createdAt);
   if (!Number.isFinite(createdAt)) return true;
   return Date.now() - createdAt > PERMISSION_TTL_MS;
+}
+
+export function findSafeDenialOption<
+  T extends { optionId: string; kind?: string; name?: string },
+>(options: T[]): T | undefined {
+  return (
+    options.find((option) => isSafeDenialValue(option.kind)) ??
+    options.find((option) => isSafeDenialValue(option.optionId)) ??
+    options.find((option) => isSafeDenialValue(option.name))
+  );
+}
+
+function isSafeDenialValue(value: string | undefined): boolean {
+  if (!value) return false;
+  return /^(deny|denied|reject|rejected|cancel|cancelled|disallow|refuse|refused)$/i.test(
+    value.trim(),
+  );
 }
 
 function normalizePromptText(value: string): string {

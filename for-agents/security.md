@@ -31,11 +31,16 @@ these invariants before adding new command paths:
   prompt must be ignored unless `from.id === allowedUserId`.
 - Private chat is the supported control surface. Group/supergroup/channel
   updates must not start prompts, commands, resumes, or permission decisions.
+  Group mode is unsupported by design; add an explicit `allowedChatId` style
+  contract before changing this.
 - Inline permission callbacks must be checked against `allowedUserId`, the
   original chat id, and the original permission message id before sending any
   ACP response.
 - Permission callbacks are one-shot. After approve/deny/expiry they must not be
   replayable.
+- Expired permission callbacks should send a safe denial option to ACP when the
+  request exposes an obvious deny/reject/cancel option. If no safe denial option
+  exists, do not guess.
 - Startup clears pending permission callbacks and marks interrupted running
   sessions as failed, because a restarted bridge cannot prove that old buttons
   still map to a live ACP request.
