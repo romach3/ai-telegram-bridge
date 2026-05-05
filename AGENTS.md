@@ -79,6 +79,22 @@ only when adding meaningful runtime or Telegram API tests.
 - `src/types/` - shared cross-module contracts.
 - `src/utils/` - small generic helpers only.
 
+## Public Contracts
+
+These surfaces are part of the bridge contract and must not change casually:
+
+- CLI commands and exit behavior exposed by `ai-telegram-bridge`.
+- `bot.example.json` config shape and matching environment variables.
+- Telegram commands visible to the allowed user.
+- Telegram permission button callback semantics.
+- ACP session lifecycle: `/new`, `/resume`, `/compact`, `/cancel`, active turn
+  handling, and one-shot permission decisions.
+- Runtime files under ignored `data/`.
+- User-facing README content in both languages.
+
+If a public contract changes, update README, `for-agents/`, config examples,
+and tests in the same change.
+
 ## Code Style
 
 - Keep layers compressed. Do not create wrapper directories for one file.
@@ -117,6 +133,19 @@ only when adding meaningful runtime or Telegram API tests.
 - Permission callbacks must be one-shot and bound to the original chat/message.
 - Keep final user-facing answers separate from transient technical status.
 - Do not restart the service for docs-only changes.
+
+## Change Workflow
+
+- Start from the owning runtime surface: Telegram behavior in
+  `src/telegram/`, ACP behavior in `src/acp/`, orchestration in
+  `src/runtime.ts`.
+- Keep changes narrow and test the behavior at the closest layer first.
+- For Telegram UX changes, prefer deterministic formatting/message tests before
+  live service checks.
+- Restart `ai-telegram-bridge.service` only for live runtime validation or when
+  explicitly requested.
+- When changing commands or permissions, check stale callback behavior and
+  unauthorized-user behavior.
 
 ## Security
 

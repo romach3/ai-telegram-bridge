@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   findSafeDenialOption,
+  formatPermissionOptionLabel,
+  formatPermissionRequestText,
   isAuthorizedTelegramInput,
   isExpiredPermission,
   isPermissionCallbackContext,
@@ -94,6 +96,54 @@ describe('runtime security helpers', () => {
         { optionId: 'continue', name: 'Continue' },
       ]),
     ).toBeUndefined();
+  });
+
+  it('renders permission requests as readable Telegram text', () => {
+    const text = formatPermissionRequestText({
+      toolCall: {
+        title:
+          'chmod +x tools/gemini-acp-task-runner/bin/gemini-acp-task && tools/gemini-acp-task-runner/bin/gemini-acp-task --help',
+        rawInput: {
+          command: [
+            '/usr/bin/zsh',
+            '-lc',
+            'chmod +x tools/gemini-acp-task-runner/bin/gemini-acp-task && tools/gemini-acp-task-runner/bin/gemini-acp-task --help',
+          ],
+          cwd: '/home/romach/Code/raw',
+          reason:
+            'Разрешить восстановить executable bit и проверить wrapper --help?',
+          proposed_execpolicy_amendment: [
+            'chmod',
+            '+x',
+            'tools/gemini-acp-task-runner/bin/gemini-acp-task',
+          ],
+        },
+      },
+    });
+
+    expect(text).toContain('Запрос разрешения');
+    expect(text).toContain('Разрешить восстановить executable bit');
+    expect(text).toContain('/home/romach/Code/raw');
+    expect(text).toContain('chmod +x tools/gemini-acp-task-runner');
+    expect(text).not.toContain('available_decisions');
+    expect(text).not.toContain('rawInput');
+  });
+
+  it('renders permission decision labels compactly', () => {
+    expect(
+      formatPermissionOptionLabel({
+        optionId: 'approved',
+        name: 'Approved',
+        kind: 'approve',
+      }),
+    ).toBe('Approve');
+    expect(
+      formatPermissionOptionLabel({
+        optionId: 'approved_execpolicy_amendment',
+        name: 'ApprovedExecpolicyAmendment',
+      }),
+    ).toBe('Approve policy');
+    expect(formatPermissionOptionLabel({ optionId: 'abort' })).toBe('Abort');
   });
 
   it('normalizes sessions by migrating missing agent id and pruning unknown agents', () => {
