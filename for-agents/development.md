@@ -123,6 +123,10 @@ Do not restart just because docs or non-runtime files changed.
 - Telegram event shape changes: `src/types/telegram.ts`. Runtime should receive
   bridge DTOs, not raw `grammy` updates.
 - Technical status rendering or command behavior: `src/runtime.ts`.
+- Visible command definitions: `src/telegram-commands.ts`. Keep hidden
+  recovery/debug commands out of the Telegram command menu and `/help`.
+- Session labels: `src/session-labels.ts`. The first non-command prompt names a
+  session for `/resume`.
 - Session or permission persistence: `src/state.ts`.
 - ACP process lifecycle: `src/backend/acp/json-rpc-client.ts`.
 - ACP method mapping: `src/backend/acp/stdio-backend.ts`.

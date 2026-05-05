@@ -103,6 +103,16 @@ only when adding meaningful runtime or Telegram API tests.
 - Treat private chat with that allowed user as the only supported control
   surface; group/supergroup updates must not execute bridge commands.
 - Keep exactly one active prompt turn per Telegram chat.
+- Keep the visible Telegram command surface small: `/new`, `/resume`,
+  `/status`, `/compact`, `/cancel`, and `/help`. `/load`, `/sessions`, and
+  `/backends` are hidden recovery/debug commands.
+- `/new` must not accept arbitrary `cwd` from Telegram. Use configured
+  `defaultCwd`; when multiple backends exist, choose backend via buttons.
+- The first normal prompt in a session becomes its `label`; slash commands such
+  as `/compact` must not rename sessions.
+- `/resume` must hide sessions whose backend is no longer configured and prune
+  those invalid records from state. Legacy records without `backendId` may be
+  migrated to the configured default backend.
 - Route ACP permission requests to Telegram inline buttons and answer the same
   backend/request id that emitted them.
 - Permission callbacks must be one-shot and bound to the original chat/message.

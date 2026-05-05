@@ -25,6 +25,12 @@ export async function writeSessions(sessions: BridgeSession[]): Promise<void> {
   await writeJsonAtomic(sessionsPath(), sessions);
 }
 
+export async function replaceSessions(
+  sessions: BridgeSession[],
+): Promise<void> {
+  await writeSessions(sessions);
+}
+
 export async function upsertSession(session: BridgeSession): Promise<void> {
   const sessions = await readSessions();
   const index = sessions.findIndex(

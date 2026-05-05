@@ -13,6 +13,7 @@ export interface BridgeSession {
   backendId?: string;
   acpSessionId: string;
   cwd: string;
+  label?: string;
   status: BridgeSessionStatus;
   createdAt: string;
   updatedAt: string;

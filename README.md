@@ -130,17 +130,18 @@ mount a binary, or use host Node mode.
 
 ## Telegram Commands
 
-- `/new [backend] [cwd]` creates a new ACP session.
-- `/resume` shows buttons for the last five local sessions.
+- `/new` creates a new ACP session. If several backends are configured, it
+  shows backend buttons first.
+- `/resume` shows buttons for the last five resumable sessions.
 - `/compact` sends `/compact` to the active ACP session.
-- `/load <sessionId> [backend] [cwd]` loads an existing session.
 - `/status` shows the current bridge/session state.
-- `/sessions` lists locally known sessions.
-- `/backends` lists configured ACP backends.
 - `/cancel` cancels the current turn.
 - `/help` shows commands.
 
 Any normal text message is sent to the active ACP session as `session/prompt`.
+The first normal prompt in a new session becomes its human-readable title in
+`/resume`. Debug commands such as `/load`, `/sessions`, and `/backends` exist
+for recovery but are intentionally hidden from the Telegram command menu.
 
 ## Notes
 

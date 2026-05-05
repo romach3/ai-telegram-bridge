@@ -14,11 +14,13 @@ import {
   isRecord,
 } from './backend/acp/events';
 import { createBackends } from './backend/registry';
+import { labelFromPrompt, sessionDisplayLabel } from './session-labels';
 import {
   clearPermissions,
   getPermission,
   markInterruptedSessionsFailed,
   readSessions,
+  replaceSessions,
   requireSessionByChat,
   savePermission,
   takePermission,
@@ -30,6 +32,7 @@ import {
   renderTelegramMarkdownChunks,
   sendTelegramChunks,
 } from './telegram/messages';
+import { HELP_LINES, VISIBLE_TELEGRAM_COMMANDS } from './telegram-commands';
 import type {
   AcpBackend,
   BridgeCallback,
@@ -133,7 +136,7 @@ export class BridgeRuntime {
     const text = message.text.trim();
 
     if (text.startsWith('/new')) {
-      await this.handleNew(chatId, text);
+      await this.handleNew(chatId);
       return;
     }
     if (text.startsWith('/resume')) {
@@ -180,8 +183,29 @@ export class BridgeRuntime {
     await this.handlePrompt(chatId, text);
   }
 
-  private async handleNew(chatId: number, text: string): Promise<void> {
-    const { backend, cwd } = this.parseNewArgs(text);
+  private async handleNew(chatId: number): Promise<void> {
+    if (this.backends.size > 1) {
+      const keyboard = [...this.backends.values()].map((backend) => [
+        {
+          text: backend.label,
+          callback_data: `new:${backend.id}`,
+        },
+      ]);
+      await this.bot.sendMessage({
+        chatId,
+        text: plainText('Choose backend:'),
+        replyMarkup: { inline_keyboard: keyboard },
+      });
+      return;
+    }
+    await this.createNewSession(chatId, this.defaultBackend());
+  }
+
+  private async createNewSession(
+    chatId: number,
+    backend: AcpBackend,
+  ): Promise<void> {
+    const cwd = this.config.defaultCwd;
     await this.ensureBackendInitialized(backend);
     const result = await backend.createSession({ cwd });
     this.loadedSessions.add(sessionKey(backend.id, result.sessionId));
@@ -190,7 +214,7 @@ export class BridgeRuntime {
     );
     await this.bot.sendMessage({
       chatId,
-      text: `${plainText(`New ${backend.label} session:`)}\n${codeBlock(result.sessionId)}`,
+      text: `${plainText(`New ${backend.label} session created.`)}\n${plainText('Send the first task to name it automatically.')}`,
     });
   }
 
@@ -228,13 +252,13 @@ export class BridgeRuntime {
     if (!sessions.length) {
       await this.bot.sendMessage({
         chatId,
-        text: plainText('No locally known sessions. Send /new first.'),
+        text: plainText('No resumable sessions. Send /new first.'),
       });
       return;
     }
     const keyboard = sessions.map((session, index) => [
       {
-        text: `${session.backendId ?? this.config.defaultBackend} ${shortSessionId(session.acpSessionId)} ${shortPath(session.cwd)}`,
+        text: sessionDisplayLabel(session, this.backendForSession(session)),
         callback_data: `resume:${index}`,
       },
     ]);
@@ -293,6 +317,7 @@ export class BridgeRuntime {
       chatId,
       text: [
         `${plainText('Status:')} ${inlineCode(session.status)}`,
+        `${plainText('Session:')} ${inlineCode(sessionDisplayLabel(session, backend))}`,
         `${plainText('Backend:')} ${inlineCode(backend.label)} ${plainText('(')}${inlineCode(backend.id)}${plainText(')')}`,
         `${plainText('ACP session:')}\n${codeBlock(session.acpSessionId)}`,
         `${plainText('CWD:')}\n${codeBlock(session.cwd)}`,
@@ -327,37 +352,13 @@ export class BridgeRuntime {
   private async sendHelp(chatId: number): Promise<void> {
     await this.bot.sendMessage({
       chatId,
-      text: codeBlock(
-        [
-          '/new [backend] [cwd]',
-          '/resume',
-          '/compact',
-          '/load <sessionId> [backend] [cwd]',
-          '/status',
-          '/sessions',
-          '/backends',
-          '/cancel',
-          '/help',
-          '',
-          'Regular text is sent to the active ACP backend session.',
-        ].join('\n'),
-      ),
+      text: codeBlock(HELP_LINES.join('\n')),
     });
   }
 
   private async registerTelegramCommands(): Promise<void> {
     try {
-      await this.bot.setMyCommands([
-        { command: 'new', description: 'Create a new ACP session' },
-        { command: 'resume', description: 'Resume a recent ACP session' },
-        { command: 'compact', description: 'Compact the active session' },
-        { command: 'load', description: 'Load an ACP session by id' },
-        { command: 'status', description: 'Show bridge status' },
-        { command: 'sessions', description: 'List local sessions' },
-        { command: 'backends', description: 'List configured ACP backends' },
-        { command: 'cancel', description: 'Cancel the current turn' },
-        { command: 'help', description: 'Show help' },
-      ]);
+      await this.bot.setMyCommands(VISIBLE_TELEGRAM_COMMANDS);
     } catch (error) {
       warn(`Telegram command registration failed: ${errorMessage(error)}`);
     }
@@ -376,6 +377,12 @@ export class BridgeRuntime {
     const session = await requireSessionByChat(chatId);
     await this.ensureSessionLoaded(session);
     const promptText = text;
+    const nextSession = session.label
+      ? session
+      : {
+          ...session,
+          label: labelFromPrompt(promptText),
+        };
     this.activePrompt = true;
     this.activeChatId = chatId;
     this.buffer = '';
@@ -388,11 +395,11 @@ export class BridgeRuntime {
     this.activeToolCallIds = new Set();
     await this.startTyping(chatId);
     await upsertSession({
-      ...session,
+      ...nextSession,
       status: 'running',
       updatedAt: new Date().toISOString(),
     });
-    void this.runPrompt(chatId, session, promptText);
+    void this.runPrompt(chatId, nextSession, promptText);
   }
 
   private async runPrompt(
@@ -446,6 +453,10 @@ export class BridgeRuntime {
       return;
     }
     const data = callback.data ?? '';
+    if (data.startsWith('new:')) {
+      await this.handleNewBackendCallback(callback, data);
+      return;
+    }
     if (data.startsWith('resume:')) {
       await this.handleResumeCallback(callback, data);
       return;
@@ -535,6 +546,29 @@ export class BridgeRuntime {
       status: 'running',
       updatedAt: new Date().toISOString(),
     });
+  }
+
+  private async handleNewBackendCallback(
+    callback: BridgeCallback,
+    data: string,
+  ): Promise<void> {
+    const chatId = callback.chatId;
+    if (!chatId) return;
+    const [, backendId] = data.split(':');
+    if (!this.backends.has(backendId)) {
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Backend not found.',
+      });
+      return;
+    }
+    await this.bot.answerCallbackQuery({
+      callbackQueryId: callback.id,
+      text: 'Creating session.',
+    });
+    if (callback.messageId)
+      await this.bot.deleteMessage({ chatId, messageId: callback.messageId });
+    await this.createNewSession(chatId, this.getBackend(backendId));
   }
 
   private async handleResumeCallback(
@@ -992,7 +1026,13 @@ export class BridgeRuntime {
 
   private async recentSessions(chatId: number): Promise<BridgeSession[]> {
     const sessions = await readSessions();
-    return sessions
+    const normalized = normalizeSessions(
+      sessions,
+      this.config.defaultBackend,
+      new Set(this.backends.keys()),
+    );
+    if (normalized.changed) await replaceSessions(normalized.sessions);
+    return normalized.sessions
       .filter(
         (session) =>
           session.telegramUserId === this.config.allowedUserId &&
@@ -1035,20 +1075,6 @@ export class BridgeRuntime {
     backend.start();
     await backend.initialize();
     this.initializedBackends.add(backend.id);
-  }
-
-  private parseNewArgs(text: string): { backend: AcpBackend; cwd: string } {
-    const [, first, second] = text.split(/\s+/);
-    if (first && this.backends.has(first)) {
-      return {
-        backend: this.getBackend(first),
-        cwd: second ?? this.config.defaultCwd,
-      };
-    }
-    return {
-      backend: this.defaultBackend(),
-      cwd: first ?? this.config.defaultCwd,
-    };
   }
 
   private async logAcpEvent(message: JsonObject): Promise<void> {
@@ -1132,6 +1158,29 @@ export function isExpiredPermission(input: { createdAt: string }): boolean {
   const createdAt = Date.parse(input.createdAt);
   if (!Number.isFinite(createdAt)) return true;
   return Date.now() - createdAt > PERMISSION_TTL_MS;
+}
+
+export function normalizeSessions(
+  sessions: BridgeSession[],
+  defaultBackend: string,
+  configuredBackends: Set<string>,
+): { sessions: BridgeSession[]; changed: boolean } {
+  let changed = false;
+  const next: BridgeSession[] = [];
+  for (const session of sessions) {
+    const backendId = session.backendId ?? defaultBackend;
+    if (!configuredBackends.has(backendId)) {
+      changed = true;
+      continue;
+    }
+    if (session.backendId) {
+      next.push(session);
+      continue;
+    }
+    changed = true;
+    next.push({ ...session, backendId });
+  }
+  return { sessions: next, changed };
 }
 
 export function findSafeDenialOption<
@@ -1237,19 +1286,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function shortSessionId(value: string): string {
-  return value.length <= 12
-    ? value
-    : `${value.slice(0, 8)}...${value.slice(-4)}`;
-}
-
 function sessionKey(backendId: string, sessionId: string): string {
   return `${backendId}:${sessionId}`;
-}
-
-function shortPath(value: string): string {
-  const parts = value.split('/').filter(Boolean);
-  return parts.at(-1) ?? value;
 }
 
 function extractLiveOutput(update: JsonValue | undefined): string | null {

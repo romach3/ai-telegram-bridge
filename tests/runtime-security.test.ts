@@ -4,6 +4,7 @@ import {
   isAuthorizedTelegramInput,
   isExpiredPermission,
   isPermissionCallbackContext,
+  normalizeSessions,
 } from '../src/runtime';
 
 describe('runtime security helpers', () => {
@@ -94,4 +95,35 @@ describe('runtime security helpers', () => {
       ]),
     ).toBeUndefined();
   });
+
+  it('normalizes sessions by migrating missing backend id and pruning unknown backends', () => {
+    const result = normalizeSessions(
+      [
+        session({ acpSessionId: 'legacy', backendId: undefined }),
+        session({ acpSessionId: 'known', backendId: 'codex' }),
+        session({ acpSessionId: 'missing', backendId: 'removed' }),
+      ],
+      'codex',
+      new Set(['codex']),
+    );
+
+    expect(result.changed).toBe(true);
+    expect(result.sessions).toEqual([
+      expect.objectContaining({ acpSessionId: 'legacy', backendId: 'codex' }),
+      expect.objectContaining({ acpSessionId: 'known', backendId: 'codex' }),
+    ]);
+  });
 });
+
+function session(input: { acpSessionId: string; backendId?: string }) {
+  return {
+    telegramUserId: 1,
+    chatId: 1,
+    backendId: input.backendId,
+    acpSessionId: input.acpSessionId,
+    cwd: '/repo',
+    status: 'idle' as const,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
