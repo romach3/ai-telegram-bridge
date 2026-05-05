@@ -79,7 +79,7 @@ Do not restart just because docs or non-runtime files changed.
   `runtime.ts` or `state.ts`.
 - If a helper is pure and generic, put it in `utils/`.
 - If a helper mentions Telegram concepts, put it in `telegram/`.
-- If a helper mentions ACP protocol concepts, put it in `backend/acp/`.
+- If a helper mentions ACP protocol concepts, put it in `acp/`.
 - If a shape crosses module boundaries, type it in `types/`.
 - Prefer `grammy` primitives for Telegram transport. Do not add new raw
   Telegram Bot API HTTP calls.
@@ -94,15 +94,15 @@ Do not restart just because docs or non-runtime files changed.
 - Telegram event shape changes: `src/types/telegram.ts`. Runtime should receive
   bridge DTOs, not raw `grammy` updates.
 - Technical status rendering or command behavior: `src/runtime.ts`.
-- Visible command definitions: `src/telegram-commands.ts`. Keep hidden
+- Visible command definitions: `src/telegram/commands.ts`. Keep hidden
   recovery/debug commands out of the Telegram command menu and `/help`.
-- Session labels: `src/session-labels.ts`. The first non-command prompt names a
+- Session labels: `src/telegram/session-labels.ts`. The first non-command prompt names a
   session for `/resume`.
 - Session or permission persistence: `src/state.ts`.
-- ACP process lifecycle: `src/backend/acp/json-rpc-client.ts`.
-- ACP method mapping: `src/backend/acp/stdio-backend.ts`.
-- ACP update parsing: `src/backend/acp/events.ts`.
-- Backend config defaults: `src/config.ts`.
+- ACP process lifecycle: `src/acp/json-rpc-client.ts`.
+- ACP method mapping: `src/acp/stdio-agent.ts`.
+- ACP update parsing: `src/acp/events.ts`.
+- Agent config defaults: `src/config.ts`.
 - Telegram access-control and permission callback invariants:
   `src/runtime.ts` and `for-agents/security.md`.
 

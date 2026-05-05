@@ -2,14 +2,14 @@ import type { BotCommand, InlineKeyboardMarkup } from 'grammy/types';
 
 export type { BotCommand, InlineKeyboardMarkup };
 
-export interface BridgeTextMessage {
+export interface TelegramTextMessageDto {
   chatId: number;
   userId: number;
   text: string;
   chatType?: string;
 }
 
-export interface BridgeCallback {
+export interface TelegramCallbackDto {
   id: string;
   userId: number;
   data?: string;

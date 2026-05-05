@@ -1,38 +1,38 @@
 import type { AcpRequestId } from './acp';
 import type { JsonValue } from './json';
 
-export type BridgeSessionStatus =
+export type BridgeSessionStatusDto =
   | 'idle'
   | 'running'
   | 'waiting_permission'
   | 'failed';
 
-export interface BridgeSession {
+export interface BridgeSessionDto {
   telegramUserId: number;
   chatId: number;
-  backendId?: string;
+  agentId?: string;
   acpSessionId: string;
   cwd: string;
   label?: string;
-  status: BridgeSessionStatus;
+  status: BridgeSessionStatusDto;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PermissionOption {
+export interface PermissionOptionDto {
   optionId: string;
   name?: string;
   kind?: string;
 }
 
-export interface PendingPermission {
+export interface PendingPermissionDto {
   id: AcpRequestId;
   callbackKey?: string;
   chatId: number;
   sessionId: string;
-  backendId?: string;
+  agentId?: string;
   messageId?: number;
   toolCall: JsonValue;
-  options: PermissionOption[];
+  options: PermissionOptionDto[];
   createdAt: string;
 }

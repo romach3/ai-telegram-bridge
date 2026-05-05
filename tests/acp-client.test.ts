@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { AcpClient } from '../src/backend/acp/json-rpc-client';
+import { AcpClient } from '../src/acp/json-rpc-client';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.join(dirname, 'fixtures', 'fake-acp.mjs');

@@ -7,7 +7,7 @@ import {
   getAgentTextChunk,
   getAgentThoughtChunk,
   getUserTextChunk,
-} from '../src/backend/acp/events';
+} from '../src/acp/events';
 
 describe('ACP event parsing', () => {
   it('extracts text chunks by update type', () => {

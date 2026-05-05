@@ -1,4 +1,4 @@
-import type { BotCommand } from './types';
+import type { BotCommand } from '../types';
 
 export const VISIBLE_TELEGRAM_COMMANDS: BotCommand[] = [
   { command: 'new', description: 'Create a new session' },
@@ -17,7 +17,7 @@ export const HELP_LINES = [
   '/cancel',
   '/help',
   '',
-  'Regular text is sent to the active ACP backend session.',
+  'Regular text is sent to the active ACP agent session.',
 ];
 
-export const HIDDEN_TELEGRAM_COMMANDS = ['/load', '/sessions', '/backends'];
+export const HIDDEN_TELEGRAM_COMMANDS = ['/agents'];

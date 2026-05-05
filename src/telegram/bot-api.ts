@@ -3,12 +3,12 @@ import type { MaybeInaccessibleMessage } from 'grammy/types';
 import type {
   AnswerCallbackQueryInput,
   BotCommand,
-  BridgeCallback,
-  BridgeTextMessage,
   DeleteMessageInput,
   EditMessageTextInput,
   SendChatActionInput,
   SendMessageInput,
+  TelegramCallbackDto,
+  TelegramTextMessageDto,
   TelegramWebhookInfo,
 } from '../types';
 
@@ -19,7 +19,7 @@ export class TelegramBotApi {
     this.bot = new Bot(token);
   }
 
-  onText(handler: (message: BridgeTextMessage) => Promise<void>): void {
+  onText(handler: (message: TelegramTextMessageDto) => Promise<void>): void {
     this.bot.on('message:text', async (ctx) => {
       if (!ctx.from) return;
       await handler({
@@ -31,7 +31,7 @@ export class TelegramBotApi {
     });
   }
 
-  onCallback(handler: (callback: BridgeCallback) => Promise<void>): void {
+  onCallback(handler: (callback: TelegramCallbackDto) => Promise<void>): void {
     this.bot.on('callback_query:data', async (ctx) => {
       const message = accessibleMessage(ctx.callbackQuery.message);
       await handler({

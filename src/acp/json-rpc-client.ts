@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import readline from 'node:readline';
-import type { AcpJsonRpcMessage, AcpRequestId, JsonValue } from '../../types';
+import type { AcpJsonRpcMessage, AcpRequestId, JsonValue } from '../types';
 
 interface PendingRequest {
   resolve(value: JsonValue | undefined): void;

@@ -10,7 +10,7 @@ const ENV_KEYS = [
   'AI_TELEGRAM_ALLOWED_USER_ID',
   'AI_TELEGRAM_DEFAULT_CWD',
   'AI_TELEGRAM_ACP_COMMAND',
-  'AI_TELEGRAM_DEFAULT_BACKEND',
+  'AI_TELEGRAM_DEFAULT_AGENT',
   'AI_TELEGRAM_ACP_EVENT_LOG',
 ];
 
@@ -30,39 +30,37 @@ afterEach(async () => {
 });
 
 describe('config loading', () => {
-  it('loads required bridge config from env and creates default backend', async () => {
+  it('loads required bridge config from env and creates default agent', async () => {
     process.env.AI_TELEGRAM_BOT_TOKEN = 'token';
     process.env.AI_TELEGRAM_ALLOWED_USER_ID = '42';
     process.env.AI_TELEGRAM_DEFAULT_CWD = '/workspace';
-    process.env.AI_TELEGRAM_ACP_COMMAND = 'custom-acp';
+    process.env.AI_TELEGRAM_ACP_COMMAND = 'example-acp';
     process.env.AI_TELEGRAM_ACP_EVENT_LOG = '/tmp/events.jsonl';
 
     await expect(getBridgeConfig()).resolves.toMatchObject({
       botToken: 'token',
       allowedUserId: 42,
       defaultCwd: '/workspace',
-      defaultBackend: 'codex',
+      defaultAgent: 'codex',
       acpEventLogPath: '/tmp/events.jsonl',
-      backends: {
+      agents: {
         codex: {
-          type: 'stdio-acp',
-          command: 'custom-acp',
+          command: 'example-acp',
         },
       },
     });
   });
 
-  it('loads backend config from bot.json', async () => {
+  it('loads agent config from bot.json', async () => {
     await fs.writeFile(
       configPath,
       JSON.stringify({
         botToken: 'file-token',
         allowedUserId: 7,
         defaultCwd: '/repo',
-        defaultBackend: 'other',
-        backends: {
+        defaultAgent: 'other',
+        agents: {
           other: {
-            type: 'stdio-acp',
             label: 'Other',
             command: 'other-acp',
             args: ['--acp'],
@@ -74,8 +72,8 @@ describe('config loading', () => {
     await expect(getBridgeConfig()).resolves.toMatchObject({
       botToken: 'file-token',
       allowedUserId: 7,
-      defaultBackend: 'other',
-      backends: {
+      defaultAgent: 'other',
+      agents: {
         other: {
           command: 'other-acp',
           args: ['--acp'],
@@ -94,16 +92,15 @@ describe('config loading', () => {
     );
   });
 
-  it('rejects a default backend that is not configured', async () => {
+  it('rejects a default agent that is not configured', async () => {
     await fs.writeFile(
       configPath,
       JSON.stringify({
         botToken: 'token',
         allowedUserId: 7,
-        defaultBackend: 'missing',
-        backends: {
+        defaultAgent: 'missing',
+        agents: {
           codex: {
-            type: 'stdio-acp',
             command: 'codex-acp',
           },
         },
@@ -111,39 +108,35 @@ describe('config loading', () => {
     );
 
     await expect(getBridgeConfig()).rejects.toThrow(
-      'Default backend is not configured: missing',
+      'Default agent is not configured: missing',
     );
   });
 
-  it('rejects invalid backend ids and empty commands', async () => {
+  it('rejects invalid agent ids and empty commands', async () => {
     await fs.writeFile(
       configPath,
       JSON.stringify({
         botToken: 'token',
         allowedUserId: 7,
-        defaultBackend: 'bad id',
-        backends: {
+        defaultAgent: 'bad id',
+        agents: {
           'bad id': {
-            type: 'stdio-acp',
             command: 'codex-acp',
           },
         },
       }),
     );
 
-    await expect(getBridgeConfig()).rejects.toThrow(
-      'Invalid backend id: bad id',
-    );
+    await expect(getBridgeConfig()).rejects.toThrow('Invalid agent id: bad id');
 
     await fs.writeFile(
       configPath,
       JSON.stringify({
         botToken: 'token',
         allowedUserId: 7,
-        defaultBackend: 'codex',
-        backends: {
+        defaultAgent: 'codex',
+        agents: {
           codex: {
-            type: 'stdio-acp',
             command: '',
           },
         },
@@ -151,7 +144,7 @@ describe('config loading', () => {
     );
 
     await expect(getBridgeConfig()).rejects.toThrow(
-      'Missing command for backend: codex',
+      'Missing command for agent: codex',
     );
   });
 
@@ -174,7 +167,7 @@ describe('config loading', () => {
     process.env.AI_TELEGRAM_DEFAULT_CWD = '/repo';
     await expect(getAcpConfig()).resolves.toMatchObject({
       defaultCwd: '/repo',
-      defaultBackend: 'codex',
+      defaultAgent: 'codex',
     });
   });
 });

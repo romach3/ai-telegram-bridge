@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { labelFromPrompt, sessionDisplayLabel } from '../src/session-labels';
-import type { BridgeSession } from '../src/types';
+import {
+  labelFromPrompt,
+  sessionDisplayLabel,
+} from '../src/telegram/session-labels';
+import type { BridgeSessionDto } from '../src/types';
 
 describe('session labels', () => {
   it('uses the first prompt as a normalized session label', () => {
@@ -25,7 +28,7 @@ describe('session labels', () => {
     ).toBe('bridge security');
   });
 
-  it('falls back to backend, workspace, and short session id', () => {
+  it('falls back to agent, workspace, and short session id', () => {
     expect(
       sessionDisplayLabel(
         session({
@@ -38,11 +41,11 @@ describe('session labels', () => {
   });
 });
 
-function session(input: Partial<BridgeSession>): BridgeSession {
+function session(input: Partial<BridgeSessionDto>): BridgeSessionDto {
   return {
     telegramUserId: 1,
     chatId: 1,
-    backendId: 'codex',
+    agentId: 'codex',
     acpSessionId: 'session',
     cwd: '/repo',
     status: 'idle',

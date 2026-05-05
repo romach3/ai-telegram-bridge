@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/romach3/ai-telegram-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/romach3/ai-telegram-bridge/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-22%2B-339933)
-![ACP](https://img.shields.io/badge/backend-ACP-4b5563)
+![ACP](https://img.shields.io/badge/agent-ACP-4b5563)
 ![Telegram](https://img.shields.io/badge/ui-Telegram-2AABEE)
 
 [English](README.md) | [Русская версия](README.ru.md)
@@ -16,7 +16,7 @@ The agent keeps working in your workspace while Telegram becomes the control
 panel.
 
 Codex ACP works out of the box if `codex-acp` is available, but the bridge is
-not Codex-specific. Any stdio ACP backend can be configured.
+not Codex-specific. Any stdio ACP agent can be configured.
 
 ## AI-Assisted Install
 
@@ -28,7 +28,7 @@ for-agents/install.md
 ```
 
 The runbook tells the agent how to check or install Node.js, ask for
-credentials, check the ACP backend command, write local config, and optionally
+credentials, check the ACP agent command, write local config, and optionally
 set up autostart. It is meant to be interactive.
 
 Codex:
@@ -52,7 +52,7 @@ claude "Read for-agents/install.md and install ai-telegram-bridge interactively.
 ## Manual Config
 
 You need a Telegram bot token, your numeric Telegram user id, a workspace path,
-and an ACP backend command.
+and an ACP agent command.
 
 You can configure the bridge with environment variables:
 
@@ -61,7 +61,7 @@ export AI_TELEGRAM_BOT_TOKEN="..."
 export AI_TELEGRAM_ALLOWED_USER_ID="123456"
 export AI_TELEGRAM_DEFAULT_CWD="/path/to/workspace"
 export AI_TELEGRAM_ACP_COMMAND="codex-acp"
-export AI_TELEGRAM_DEFAULT_BACKEND="codex"
+export AI_TELEGRAM_DEFAULT_AGENT="codex"
 ```
 
 Or copy the local config template:
@@ -73,14 +73,13 @@ cp bot.example.json bot.json
 `bot.json` is ignored by git. Keep real tokens there or in env vars, never in
 tracked files.
 
-Example backend config:
+Example agent config:
 
 ```json
 {
-  "defaultBackend": "codex",
-  "backends": {
+  "defaultAgent": "codex",
+  "agents": {
     "codex": {
-      "type": "stdio-acp",
       "label": "Codex",
       "command": "codex-acp",
       "args": []
@@ -105,8 +104,8 @@ npm start -- serve
 
 ## Telegram Commands
 
-- `/new` creates a new ACP session. If several backends are configured, it
-  shows backend buttons first.
+- `/new` creates a new ACP session. If several agents are configured, it
+  shows agent buttons first.
 - `/resume` shows buttons for the last five resumable sessions.
 - `/compact` sends `/compact` to the active ACP session.
 - `/status` shows the current bridge/session state.
@@ -115,12 +114,12 @@ npm start -- serve
 
 Any normal text message is sent to the active ACP session as `session/prompt`.
 The first normal prompt in a new session becomes its human-readable title in
-`/resume`. Debug commands such as `/load`, `/sessions`, and `/backends` exist
-for recovery but are intentionally hidden from the Telegram command menu.
+`/resume`. `/agents` is a hidden debug command and is intentionally kept out of
+the Telegram command menu.
 
 ## Notes
 
-The bridge talks to ACP backends over newline-delimited JSON-RPC on stdio. The
+The bridge talks to ACP agents over newline-delimited JSON-RPC on stdio. The
 idea is close to using an ACP agent from an editor such as Zed, except Telegram
 is the UI.
 

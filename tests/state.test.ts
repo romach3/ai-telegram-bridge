@@ -14,7 +14,7 @@ import {
   takePermission,
   upsertSession,
 } from '../src/state';
-import type { BridgeSession, PendingPermission } from '../src/types';
+import type { BridgeSessionDto, PendingPermissionDto } from '../src/types';
 
 let dataDir: string;
 
@@ -117,11 +117,11 @@ describe('state persistence', () => {
   });
 });
 
-function session(input: Partial<BridgeSession>): BridgeSession {
+function session(input: Partial<BridgeSessionDto>): BridgeSessionDto {
   return {
     telegramUserId: 1,
     chatId: 1,
-    backendId: 'codex',
+    agentId: 'codex',
     acpSessionId: 's',
     cwd: '/tmp',
     status: 'idle',
@@ -131,13 +131,15 @@ function session(input: Partial<BridgeSession>): BridgeSession {
   };
 }
 
-function permission(input: Partial<PendingPermission>): PendingPermission {
+function permission(
+  input: Partial<PendingPermissionDto>,
+): PendingPermissionDto {
   return {
     id: 1,
     callbackKey: undefined,
     chatId: 1,
     sessionId: 's',
-    backendId: 'codex',
+    agentId: 'codex',
     toolCall: null,
     options: [{ optionId: 'allow' }],
     createdAt: '2026-01-01T00:00:00.000Z',

@@ -1,7 +1,7 @@
 # Security Notes For Agents
 
 The bridge is designed for one trusted Telegram user controlling local ACP
-backends. Treat every configured backend command as local code execution with
+agents. Treat every configured agent command as local code execution with
 the service user's permissions.
 
 ## Secrets
@@ -17,8 +17,7 @@ Relevant env vars:
 - `AI_TELEGRAM_BOT_TOKEN`
 - `AI_TELEGRAM_ALLOWED_USER_ID`
 - `AI_TELEGRAM_DEFAULT_CWD`
-- `AI_TELEGRAM_DEFAULT_BACKEND`
-- `AI_TELEGRAM_ACP_COMMAND`
+- `AI_TELEGRAM_DEFAULT_AGENT`
 - `AI_TELEGRAM_ACP_COMMAND`
 - `AI_TELEGRAM_ACP_EVENT_LOG`
 
@@ -46,7 +45,7 @@ these invariants before adding new command paths:
   still map to a live ACP request.
 
 Inline permission callbacks are stored with callback ids in `state.ts`. When a
-callback is accepted, runtime must answer the same backend and ACP request id
+callback is accepted, runtime must answer the same agent and ACP request id
 that emitted the permission request.
 
 ## Bot Token Ownership

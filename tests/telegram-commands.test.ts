@@ -3,7 +3,7 @@ import {
   HELP_LINES,
   HIDDEN_TELEGRAM_COMMANDS,
   VISIBLE_TELEGRAM_COMMANDS,
-} from '../src/telegram-commands';
+} from '../src/telegram/commands';
 
 describe('Telegram command surface', () => {
   it('keeps debug commands hidden from menu and help', () => {

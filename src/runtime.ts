@@ -1,8 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import {
-  appendAcpEventLog,
-  defaultAcpEventLogPath,
-} from './backend/acp/event-log';
+import { appendAcpEventLog, defaultAcpEventLogPath } from './acp/event-log';
 import {
   describeUpdate,
   extractPermissionOptions,
@@ -12,9 +9,8 @@ import {
   getAgentThoughtChunk,
   getUserTextChunk,
   isRecord,
-} from './backend/acp/events';
-import { createBackends } from './backend/registry';
-import { labelFromPrompt, sessionDisplayLabel } from './session-labels';
+} from './acp/events';
+import { createAcpAgents } from './acp/stdio-agent';
 import {
   clearPermissions,
   getPermission,
@@ -27,26 +23,30 @@ import {
   upsertSession,
 } from './state';
 import { TelegramBotApi } from './telegram/bot-api';
+import { HELP_LINES, VISIBLE_TELEGRAM_COMMANDS } from './telegram/commands';
 import { codeBlock, inlineCode, plainText } from './telegram/markdown';
 import {
   renderTelegramMarkdownChunks,
   sendTelegramChunks,
 } from './telegram/messages';
-import { HELP_LINES, VISIBLE_TELEGRAM_COMMANDS } from './telegram-commands';
+import {
+  labelFromPrompt,
+  sessionDisplayLabel,
+} from './telegram/session-labels';
 import type {
-  AcpBackend,
-  BridgeCallback,
+  AcpAgent,
   BridgeConfig,
-  BridgeSession,
-  BridgeTextMessage,
+  BridgeSessionDto,
   JsonObject,
   JsonValue,
+  TelegramCallbackDto,
+  TelegramTextMessageDto,
 } from './types';
 import { log, warn } from './utils/logger';
 
 export class BridgeRuntime {
   private readonly bot: TelegramBotApi;
-  private readonly backends: Map<string, AcpBackend>;
+  private readonly agents: Map<string, AcpAgent>;
   private activePrompt = false;
   private activeChatId?: number;
   private buffer = '';
@@ -66,27 +66,27 @@ export class BridgeRuntime {
   private toolStatusTimer?: NodeJS.Timeout;
   private toolStatusLastText = '';
   private readonly loadedSessions = new Set<string>();
-  private readonly initializedBackends = new Set<string>();
+  private readonly initializedAgents = new Set<string>();
 
   constructor(private readonly config: BridgeConfig) {
     this.bot = new TelegramBotApi(config.botToken);
-    this.backends = createBackends(config);
-    for (const backend of this.backends.values()) {
-      backend.on(
+    this.agents = createAcpAgents(config);
+    for (const agent of this.agents.values()) {
+      agent.on(
         'message',
-        (message) => void this.handleAcpMessage(backend.id, message),
+        (message) => void this.handleAcpMessage(agent.id, message),
       );
-      backend.on('stderr', (value) => {
+      agent.on('stderr', (value) => {
         const text = String(value).trim();
-        if (text) warn(`[${backend.id}] ${text}`);
+        if (text) warn(`[${agent.id}] ${text}`);
       });
     }
   }
 
   async start(): Promise<void> {
-    const backend = this.defaultBackend();
+    const agent = this.defaultAgent();
     await this.resetInterruptedState();
-    await this.ensureBackendInitialized(backend);
+    await this.ensureAgentInitialized(agent);
     await this.registerTelegramCommands();
     await this.warnIfWebhookConfigured();
     this.bot.onText((message) => this.handleTextEvent(message));
@@ -96,11 +96,13 @@ export class BridgeRuntime {
         `Telegram bot failed: ${error instanceof Error ? error.message : String(error)}`,
       ),
     );
-    log(`ACP backend initialized: ${backend.id}`);
+    log(`ACP agent initialized: ${agent.id}`);
     await this.bot.start(this.config.pollTimeoutSeconds);
   }
 
-  private async handleTextEvent(message: BridgeTextMessage): Promise<void> {
+  private async handleTextEvent(
+    message: TelegramTextMessageDto,
+  ): Promise<void> {
     try {
       await this.handleMessage(message);
     } catch (error) {
@@ -108,7 +110,9 @@ export class BridgeRuntime {
     }
   }
 
-  private async handleCallbackEvent(callback: BridgeCallback): Promise<void> {
+  private async handleCallbackEvent(
+    callback: TelegramCallbackDto,
+  ): Promise<void> {
     try {
       await this.handleCallback(callback);
     } catch (error) {
@@ -129,7 +133,7 @@ export class BridgeRuntime {
     warn(message);
   }
 
-  private async handleMessage(message: BridgeTextMessage): Promise<void> {
+  private async handleMessage(message: TelegramTextMessageDto): Promise<void> {
     if (!isAuthorizedTelegramInput(message, this.config.allowedUserId)) return;
 
     const chatId = message.chatId;
@@ -147,10 +151,6 @@ export class BridgeRuntime {
       await this.handleCompact(chatId);
       return;
     }
-    if (text.startsWith('/load')) {
-      await this.handleLoad(chatId, text);
-      return;
-    }
     if (text.startsWith('/cancel')) {
       await this.handleCancel(chatId);
       return;
@@ -159,12 +159,8 @@ export class BridgeRuntime {
       await this.handleStatus(chatId);
       return;
     }
-    if (text.startsWith('/sessions')) {
-      await this.handleSessions(chatId);
-      return;
-    }
-    if (text.startsWith('/backends')) {
-      await this.handleBackends(chatId);
+    if (text.startsWith('/agents')) {
+      await this.handleAgents(chatId);
       return;
     }
     if (text.startsWith('/help') || text.startsWith('/start')) {
@@ -184,66 +180,37 @@ export class BridgeRuntime {
   }
 
   private async handleNew(chatId: number): Promise<void> {
-    if (this.backends.size > 1) {
-      const keyboard = [...this.backends.values()].map((backend) => [
+    if (this.agents.size > 1) {
+      const keyboard = [...this.agents.values()].map((agent) => [
         {
-          text: backend.label,
-          callback_data: `new:${backend.id}`,
+          text: agent.label,
+          callback_data: `new:${agent.id}`,
         },
       ]);
       await this.bot.sendMessage({
         chatId,
-        text: plainText('Choose backend:'),
+        text: plainText('Choose agent:'),
         replyMarkup: { inline_keyboard: keyboard },
       });
       return;
     }
-    await this.createNewSession(chatId, this.defaultBackend());
+    await this.createNewSession(chatId, this.defaultAgent());
   }
 
   private async createNewSession(
     chatId: number,
-    backend: AcpBackend,
+    agent: AcpAgent,
   ): Promise<void> {
     const cwd = this.config.defaultCwd;
-    await this.ensureBackendInitialized(backend);
-    const result = await backend.createSession({ cwd });
-    this.loadedSessions.add(sessionKey(backend.id, result.sessionId));
+    await this.ensureAgentInitialized(agent);
+    const result = await agent.createSession({ cwd });
+    this.loadedSessions.add(sessionKey(agent.id, result.sessionId));
     await upsertSession(
-      this.makeSession(chatId, backend.id, result.sessionId, cwd, 'idle'),
+      this.makeSession(chatId, agent.id, result.sessionId, cwd, 'idle'),
     );
     await this.bot.sendMessage({
       chatId,
-      text: `${plainText(`New ${backend.label} session created.`)}\n${plainText('Send the first task to name it automatically.')}`,
-    });
-  }
-
-  private async handleLoad(chatId: number, text: string): Promise<void> {
-    const [, sessionId, backendOrCwd, maybeCwd] = text.split(/\s+/);
-    if (!sessionId) {
-      await this.bot.sendMessage({
-        chatId,
-        text: plainText('Usage: /load <sessionId> [backend] [cwd]'),
-      });
-      return;
-    }
-    const backend =
-      backendOrCwd && this.backends.has(backendOrCwd)
-        ? this.getBackend(backendOrCwd)
-        : this.defaultBackend();
-    const cwd =
-      backendOrCwd && this.backends.has(backendOrCwd)
-        ? (maybeCwd ?? this.config.defaultCwd)
-        : (backendOrCwd ?? this.config.defaultCwd);
-    await this.ensureBackendInitialized(backend);
-    await backend.loadSession({ sessionId, cwd });
-    this.loadedSessions.add(sessionKey(backend.id, sessionId));
-    await upsertSession(
-      this.makeSession(chatId, backend.id, sessionId, cwd, 'idle'),
-    );
-    await this.bot.sendMessage({
-      chatId,
-      text: `${plainText(`Loaded ${backend.label} session:`)}\n${codeBlock(sessionId)}`,
+      text: `${plainText(`New ${agent.label} session created.`)}\n${plainText('Send the first task to name it automatically.')}`,
     });
   }
 
@@ -258,7 +225,7 @@ export class BridgeRuntime {
     }
     const keyboard = sessions.map((session, index) => [
       {
-        text: sessionDisplayLabel(session, this.backendForSession(session)),
+        text: sessionDisplayLabel(session, this.agentForSession(session)),
         callback_data: `resume:${index}`,
       },
     ]);
@@ -274,7 +241,7 @@ export class BridgeRuntime {
       await this.updateToolStatus(
         chatId,
         this.toolStatusText ||
-          'ACP backend is still running. Send /cancel to stop the current turn.',
+          'ACP agent is still running. Send /cancel to stop the current turn.',
       );
       return;
     }
@@ -301,7 +268,7 @@ export class BridgeRuntime {
 
   private async handleCancel(chatId: number): Promise<void> {
     const session = await requireSessionByChat(chatId);
-    this.backendForSession(session).cancel({ sessionId: session.acpSessionId });
+    this.agentForSession(session).cancel({ sessionId: session.acpSessionId });
     await upsertSession({
       ...session,
       status: 'idle',
@@ -312,39 +279,23 @@ export class BridgeRuntime {
 
   private async handleStatus(chatId: number): Promise<void> {
     const session = await requireSessionByChat(chatId);
-    const backend = this.backendForSession(session);
+    const agent = this.agentForSession(session);
     await this.bot.sendMessage({
       chatId,
       text: [
         `${plainText('Status:')} ${inlineCode(session.status)}`,
-        `${plainText('Session:')} ${inlineCode(sessionDisplayLabel(session, backend))}`,
-        `${plainText('Backend:')} ${inlineCode(backend.label)} ${plainText('(')}${inlineCode(backend.id)}${plainText(')')}`,
+        `${plainText('Session:')} ${inlineCode(sessionDisplayLabel(session, agent))}`,
+        `${plainText('Agent:')} ${inlineCode(agent.label)} ${plainText('(')}${inlineCode(agent.id)}${plainText(')')}`,
         `${plainText('ACP session:')}\n${codeBlock(session.acpSessionId)}`,
         `${plainText('CWD:')}\n${codeBlock(session.cwd)}`,
       ].join('\n'),
     });
   }
 
-  private async handleSessions(chatId: number): Promise<void> {
-    const sessions = await readSessions();
-    if (!sessions.length) {
-      await this.bot.sendMessage({
-        chatId,
-        text: plainText('No locally known sessions.'),
-      });
-      return;
-    }
-    const lines = sessions.map(
-      (session) =>
-        `${session.status} ${session.backendId ?? this.config.defaultBackend} ${session.acpSessionId} ${session.cwd}`,
-    );
-    await this.bot.sendMessage({ chatId, text: codeBlock(lines.join('\n')) });
-  }
-
-  private async handleBackends(chatId: number): Promise<void> {
-    const lines = [...this.backends.values()].map((backend) => {
-      const marker = backend.id === this.config.defaultBackend ? '*' : '-';
-      return `${marker} ${backend.id}: ${backend.label}`;
+  private async handleAgents(chatId: number): Promise<void> {
+    const lines = [...this.agents.values()].map((agent) => {
+      const marker = agent.id === this.config.defaultAgent ? '*' : '-';
+      return `${marker} ${agent.id}: ${agent.label}`;
     });
     await this.bot.sendMessage({ chatId, text: codeBlock(lines.join('\n')) });
   }
@@ -369,7 +320,7 @@ export class BridgeRuntime {
       await this.updateToolStatus(
         chatId,
         this.toolStatusText ||
-          'ACP backend is still running. Send /cancel to stop the current turn.',
+          'ACP agent is still running. Send /cancel to stop the current turn.',
       );
       return;
     }
@@ -404,11 +355,11 @@ export class BridgeRuntime {
 
   private async runPrompt(
     chatId: number,
-    session: BridgeSession,
+    session: BridgeSessionDto,
     text: string,
   ): Promise<void> {
     try {
-      const result = await this.backendForSession(session).prompt({
+      const result = await this.agentForSession(session).prompt({
         sessionId: session.acpSessionId,
         text,
       });
@@ -447,14 +398,14 @@ export class BridgeRuntime {
     }
   }
 
-  private async handleCallback(callback: BridgeCallback): Promise<void> {
+  private async handleCallback(callback: TelegramCallbackDto): Promise<void> {
     if (!isAuthorizedTelegramInput(callback, this.config.allowedUserId)) {
       await this.answerCallbackBestEffort(callback, 'Unauthorized user.');
       return;
     }
     const data = callback.data ?? '';
     if (data.startsWith('new:')) {
-      await this.handleNewBackendCallback(callback, data);
+      await this.handleNewAgentCallback(callback, data);
       return;
     }
     if (data.startsWith('resume:')) {
@@ -482,14 +433,15 @@ export class BridgeRuntime {
       await takePermission(callbackKey);
       const denialOption = findSafeDenialOption(permission.options);
       if (denialOption) {
-        this.getBackend(
-          permission.backendId ?? this.config.defaultBackend,
-        ).respond(permission.id, {
-          outcome: {
-            outcome: 'selected',
-            optionId: denialOption.optionId,
+        this.getAgent(permission.agentId ?? this.config.defaultAgent).respond(
+          permission.id,
+          {
+            outcome: {
+              outcome: 'selected',
+              optionId: denialOption.optionId,
+            },
           },
-        });
+        );
       }
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
@@ -521,7 +473,7 @@ export class BridgeRuntime {
       });
       return;
     }
-    this.getBackend(permission.backendId ?? this.config.defaultBackend).respond(
+    this.getAgent(permission.agentId ?? this.config.defaultAgent).respond(
       permission.id,
       {
         outcome: {
@@ -548,17 +500,17 @@ export class BridgeRuntime {
     });
   }
 
-  private async handleNewBackendCallback(
-    callback: BridgeCallback,
+  private async handleNewAgentCallback(
+    callback: TelegramCallbackDto,
     data: string,
   ): Promise<void> {
     const chatId = callback.chatId;
     if (!chatId) return;
-    const [, backendId] = data.split(':');
-    if (!this.backends.has(backendId)) {
+    const [, agentId] = data.split(':');
+    if (!this.agents.has(agentId)) {
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
-        text: 'Backend not found.',
+        text: 'Agent not found.',
       });
       return;
     }
@@ -568,11 +520,11 @@ export class BridgeRuntime {
     });
     if (callback.messageId)
       await this.bot.deleteMessage({ chatId, messageId: callback.messageId });
-    await this.createNewSession(chatId, this.getBackend(backendId));
+    await this.createNewSession(chatId, this.getAgent(agentId));
   }
 
   private async handleResumeCallback(
-    callback: BridgeCallback,
+    callback: TelegramCallbackDto,
     data: string,
   ): Promise<void> {
     const chatId = callback.chatId;
@@ -580,7 +532,7 @@ export class BridgeRuntime {
     if (this.activePrompt) {
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
-        text: 'ACP backend is still running.',
+        text: 'ACP agent is still running.',
       });
       return;
     }
@@ -594,13 +546,13 @@ export class BridgeRuntime {
       });
       return;
     }
-    const backend = this.backendForSession(session);
-    await this.ensureBackendInitialized(backend);
-    await backend.loadSession({
+    const agent = this.agentForSession(session);
+    await this.ensureAgentInitialized(agent);
+    await agent.loadSession({
       sessionId: session.acpSessionId,
       cwd: session.cwd,
     });
-    this.loadedSessions.add(sessionKey(backend.id, session.acpSessionId));
+    this.loadedSessions.add(sessionKey(agent.id, session.acpSessionId));
     await upsertSession({
       ...session,
       status: 'idle',
@@ -614,16 +566,16 @@ export class BridgeRuntime {
       await this.bot.deleteMessage({ chatId, messageId: callback.messageId });
     await this.bot.sendMessage({
       chatId,
-      text: `${plainText(`Resumed ${backend.label} session:`)}\n${codeBlock(session.acpSessionId)}\n${plainText('CWD:')}\n${codeBlock(session.cwd)}`,
+      text: `${plainText(`Resumed ${agent.label} session:`)}\n${codeBlock(session.acpSessionId)}\n${plainText('CWD:')}\n${codeBlock(session.cwd)}`,
     });
   }
 
   private async handleAcpMessage(
-    backendId: string,
+    agentId: string,
     message: unknown,
   ): Promise<void> {
     if (!isRecord(message) || typeof message.method !== 'string') return;
-    void this.logAcpEvent({ backendId, ...message });
+    void this.logAcpEvent({ agentId, ...message });
     if (message.method === 'session/update') {
       const update = extractUpdate(message.params);
       const userChunk = getUserTextChunk(update);
@@ -672,12 +624,12 @@ export class BridgeRuntime {
     }
 
     if (message.method === 'session/request_permission') {
-      await this.handlePermissionRequest(backendId, message);
+      await this.handlePermissionRequest(agentId, message);
     }
   }
 
   private async handlePermissionRequest(
-    backendId: string,
+    agentId: string,
     message: JsonObject,
   ): Promise<void> {
     if (
@@ -703,7 +655,7 @@ export class BridgeRuntime {
     ]);
     const sentMessageId = await this.bot.sendMessage({
       chatId: this.activeChatId,
-      text: `${plainText('ACP backend requests permission:')}\n${codeBlock(JSON.stringify(isRecord(message.params) ? message.params.toolCall : {}, null, 2).slice(0, 2500))}`,
+      text: `${plainText('ACP agent requests permission:')}\n${codeBlock(JSON.stringify(isRecord(message.params) ? message.params.toolCall : {}, null, 2).slice(0, 2500))}`,
       replyMarkup: { inline_keyboard: keyboard },
     });
     await savePermission({
@@ -711,7 +663,7 @@ export class BridgeRuntime {
       callbackKey,
       chatId: this.activeChatId,
       sessionId,
-      backendId,
+      agentId,
       messageId: sentMessageId,
       toolCall: isRecord(message.params)
         ? (message.params.toolCall ?? null)
@@ -994,16 +946,16 @@ export class BridgeRuntime {
 
   private makeSession(
     chatId: number,
-    backendId: string,
+    agentId: string,
     acpSessionId: string,
     cwd: string,
-    status: BridgeSession['status'],
-  ): BridgeSession {
+    status: BridgeSessionDto['status'],
+  ): BridgeSessionDto {
     const now = new Date().toISOString();
     return {
       telegramUserId: this.config.allowedUserId,
       chatId,
-      backendId,
+      agentId,
       acpSessionId,
       cwd,
       status,
@@ -1012,24 +964,24 @@ export class BridgeRuntime {
     };
   }
 
-  private async ensureSessionLoaded(session: BridgeSession): Promise<void> {
-    const backend = this.backendForSession(session);
-    const key = sessionKey(backend.id, session.acpSessionId);
+  private async ensureSessionLoaded(session: BridgeSessionDto): Promise<void> {
+    const agent = this.agentForSession(session);
+    const key = sessionKey(agent.id, session.acpSessionId);
     if (this.loadedSessions.has(key)) return;
-    await this.ensureBackendInitialized(backend);
-    await backend.loadSession({
+    await this.ensureAgentInitialized(agent);
+    await agent.loadSession({
       sessionId: session.acpSessionId,
       cwd: session.cwd,
     });
     this.loadedSessions.add(key);
   }
 
-  private async recentSessions(chatId: number): Promise<BridgeSession[]> {
+  private async recentSessions(chatId: number): Promise<BridgeSessionDto[]> {
     const sessions = await readSessions();
     const normalized = normalizeSessions(
       sessions,
-      this.config.defaultBackend,
-      new Set(this.backends.keys()),
+      this.config.defaultAgent,
+      new Set(this.agents.keys()),
     );
     if (normalized.changed) await replaceSessions(normalized.sessions);
     return normalized.sessions
@@ -1056,25 +1008,25 @@ export class BridgeRuntime {
     this.activeChatId = undefined;
   }
 
-  private defaultBackend(): AcpBackend {
-    return this.getBackend(this.config.defaultBackend);
+  private defaultAgent(): AcpAgent {
+    return this.getAgent(this.config.defaultAgent);
   }
 
-  private getBackend(backendId: string): AcpBackend {
-    const backend = this.backends.get(backendId);
-    if (!backend) throw new Error(`Unknown ACP backend: ${backendId}`);
-    return backend;
+  private getAgent(agentId: string): AcpAgent {
+    const agent = this.agents.get(agentId);
+    if (!agent) throw new Error(`Unknown ACP agent: ${agentId}`);
+    return agent;
   }
 
-  private backendForSession(session: BridgeSession): AcpBackend {
-    return this.getBackend(session.backendId ?? this.config.defaultBackend);
+  private agentForSession(session: BridgeSessionDto): AcpAgent {
+    return this.getAgent(session.agentId ?? this.config.defaultAgent);
   }
 
-  private async ensureBackendInitialized(backend: AcpBackend): Promise<void> {
-    if (this.initializedBackends.has(backend.id)) return;
-    backend.start();
-    await backend.initialize();
-    this.initializedBackends.add(backend.id);
+  private async ensureAgentInitialized(agent: AcpAgent): Promise<void> {
+    if (this.initializedAgents.has(agent.id)) return;
+    agent.start();
+    await agent.initialize();
+    this.initializedAgents.add(agent.id);
   }
 
   private async logAcpEvent(message: JsonObject): Promise<void> {
@@ -1114,7 +1066,7 @@ export class BridgeRuntime {
   }
 
   private async answerCallbackBestEffort(
-    callback: BridgeCallback,
+    callback: TelegramCallbackDto,
     text: string,
   ): Promise<void> {
     try {
@@ -1140,7 +1092,7 @@ export function isAuthorizedTelegramInput(
 }
 
 export function isPermissionCallbackContext(
-  callback: BridgeCallback,
+  callback: TelegramCallbackDto,
   permission: { chatId: number; messageId?: number },
 ): boolean {
   if (callback.chatId !== permission.chatId) return false;
@@ -1161,24 +1113,24 @@ export function isExpiredPermission(input: { createdAt: string }): boolean {
 }
 
 export function normalizeSessions(
-  sessions: BridgeSession[],
-  defaultBackend: string,
-  configuredBackends: Set<string>,
-): { sessions: BridgeSession[]; changed: boolean } {
+  sessions: BridgeSessionDto[],
+  defaultAgent: string,
+  configuredAgents: Set<string>,
+): { sessions: BridgeSessionDto[]; changed: boolean } {
   let changed = false;
-  const next: BridgeSession[] = [];
+  const next: BridgeSessionDto[] = [];
   for (const session of sessions) {
-    const backendId = session.backendId ?? defaultBackend;
-    if (!configuredBackends.has(backendId)) {
+    const agentId = session.agentId ?? defaultAgent;
+    if (!configuredAgents.has(agentId)) {
       changed = true;
       continue;
     }
-    if (session.backendId) {
+    if (session.agentId) {
       next.push(session);
       continue;
     }
     changed = true;
-    next.push({ ...session, backendId });
+    next.push({ ...session, agentId });
   }
   return { sessions: next, changed };
 }
@@ -1286,8 +1238,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function sessionKey(backendId: string, sessionId: string): string {
-  return `${backendId}:${sessionId}`;
+function sessionKey(agentId: string, sessionId: string): string {
+  return `${agentId}:${sessionId}`;
 }
 
 function extractLiveOutput(update: JsonValue | undefined): string | null {

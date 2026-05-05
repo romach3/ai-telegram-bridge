@@ -3,9 +3,9 @@
 ## Project Overview
 
 `ai-telegram-bridge` is a Telegram Bot API bridge for controlling one live
-ACP backend session. It forwards Telegram prompts, cancellation requests,
+ACP agent session. It forwards Telegram prompts, cancellation requests,
 permission decisions, technical status, and final answers between one allowed
-Telegram user and configured ACP backends.
+Telegram user and configured ACP agents.
 
 Treat this package as transport infrastructure. Do not put course-production,
 Gemini model fallback, prompt templates, or provider-specific task runners here.
@@ -71,10 +71,9 @@ only when adding meaningful runtime or Telegram API tests.
 - `src/runtime.ts` - main bridge loop, Telegram command routing, active-turn
   state, permission callbacks, live status rendering, and ACP dispatch.
 - `src/state.ts` - persisted bridge sessions and pending permissions.
-- `src/backend/registry.ts` - backend type dispatch.
-- `src/backend/acp/` - built-in stdio ACP backend, JSON-RPC client, ACP event
+- `src/acp/stdio-agent.ts` - agent setup.
+- `src/acp/` - built-in stdio ACP agent, JSON-RPC client, ACP event
   parsing, and ACP event logging.
-- `src/backend/custom/` - extension point for custom backend implementations.
 - `src/telegram/` - Telegram Bot API, formatting, markdown conversion, message
   chunking/editing, and Telegram polling offset.
 - `src/types/` - shared cross-module contracts.
@@ -87,8 +86,8 @@ only when adding meaningful runtime or Telegram API tests.
   `services/`, or `pipelines/` unless there is a concrete multi-file boundary.
 - Put behavior near the owning runtime surface:
   - Telegram behavior in `src/telegram/`.
-  - ACP behavior in `src/backend/acp/`.
-  - Backend selection in `src/backend/registry.ts`.
+  - ACP behavior in `src/acp/`.
+  - Agent selection in `src/acp/stdio-agent.ts`.
   - Bridge orchestration in `src/runtime.ts`.
   - Bridge session/permission persistence in `src/state.ts`.
   - Generic helpers in `src/utils/`.
@@ -97,24 +96,24 @@ only when adding meaningful runtime or Telegram API tests.
 
 ## Runtime Invariants
 
-- Use ACP as the primary backend transport. Do not fall back to PTY scraping or
+- Use ACP as the primary agent transport. Do not fall back to PTY scraping or
   CLI resume commands for normal operation.
 - Only process Telegram updates from `allowedUserId`.
 - Treat private chat with that allowed user as the only supported control
   surface; group/supergroup updates must not execute bridge commands.
 - Keep exactly one active prompt turn per Telegram chat.
 - Keep the visible Telegram command surface small: `/new`, `/resume`,
-  `/status`, `/compact`, `/cancel`, and `/help`. `/load`, `/sessions`, and
-  `/backends` are hidden recovery/debug commands.
+  `/status`, `/compact`, `/cancel`, and `/help`. `/agents` is the only hidden
+  debug command.
 - `/new` must not accept arbitrary `cwd` from Telegram. Use configured
-  `defaultCwd`; when multiple backends exist, choose backend via buttons.
+  `defaultCwd`; when multiple agents exist, choose agent via buttons.
 - The first normal prompt in a session becomes its `label`; slash commands such
   as `/compact` must not rename sessions.
-- `/resume` must hide sessions whose backend is no longer configured and prune
-  those invalid records from state. Legacy records without `backendId` may be
-  migrated to the configured default backend.
+- `/resume` must hide sessions whose agent is no longer configured and prune
+  those invalid records from state. Legacy records without `agentId` may be
+  migrated to the configured default agent.
 - Route ACP permission requests to Telegram inline buttons and answer the same
-  backend/request id that emitted them.
+  agent/request id that emitted them.
 - Permission callbacks must be one-shot and bound to the original chat/message.
 - Keep final user-facing answers separate from transient technical status.
 - Do not restart the service for docs-only changes.
@@ -122,7 +121,7 @@ only when adding meaningful runtime or Telegram API tests.
 ## Security
 
 - Never commit `bot.json`, `data/*`, `dist/`, or `node_modules/`.
-- Treat ACP backend commands as local code execution with the service user's
+- Treat ACP agent commands as local code execution with the service user's
   permissions.
 - `data/acp-events.jsonl` may contain full tool outputs and should be treated as
   sensitive debug data.
@@ -133,8 +132,7 @@ Use these files for deeper implementation context:
 
 - `for-agents/architecture.md` - runtime flow, file ownership, rendering model,
   and persistence model.
-- `for-agents/backends.md` - stdio ACP backend and custom backend extension
-  rules.
+- `for-agents/acp-agents.md` - stdio ACP agent rules.
 - `for-agents/development.md` - verification, service workflow, refactor rules,
   and common change locations.
 - `for-agents/install.md` - interactive install/bootstrap runbook for agents.

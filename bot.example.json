@@ -2,10 +2,9 @@
   "botToken": "0000000000:replace-me",
   "allowedUserId": 123456789,
   "defaultCwd": "/path/to/workspace",
-  "defaultBackend": "codex",
-  "backends": {
+  "defaultAgent": "codex",
+  "agents": {
     "codex": {
-      "type": "stdio-acp",
       "label": "Codex",
       "command": "codex-acp",
       "args": []

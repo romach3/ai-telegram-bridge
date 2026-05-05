@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { AcpBackend, BridgeSession } from './types';
+import type { AcpAgent, BridgeSessionDto } from '../types';
 
 const MAX_SESSION_LABEL_LENGTH = 80;
 
@@ -8,12 +8,12 @@ export function labelFromPrompt(prompt: string): string {
 }
 
 export function sessionDisplayLabel(
-  session: BridgeSession,
-  backend: Pick<AcpBackend, 'id' | 'label'>,
+  session: BridgeSessionDto,
+  agent: Pick<AcpAgent, 'id' | 'label'>,
 ): string {
   const label = normalizeLabel(session.label ?? '');
   if (label) return label;
-  return `${backend.label} · ${workspaceName(session.cwd)} · ${shortSessionId(session.acpSessionId)}`;
+  return `${agent.label} · ${workspaceName(session.cwd)} · ${shortSessionId(session.acpSessionId)}`;
 }
 
 export function workspaceName(cwd: string): string {

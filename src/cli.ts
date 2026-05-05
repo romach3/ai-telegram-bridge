@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { createBackends } from './backend/registry';
+import { createAcpAgents } from './acp/stdio-agent';
 import { getAcpConfig, getBridgeConfig } from './config';
 import { serveBridge } from './runtime';
 
@@ -7,7 +7,7 @@ const program = new Command();
 
 program
   .name('ai-telegram-bridge')
-  .description('Telegram bridge for ACP backends')
+  .description('Telegram bridge for ACP agents')
   .version('0.1.0');
 
 program
@@ -33,33 +33,25 @@ async function serve(): Promise<void> {
 
 async function probeAcp(): Promise<void> {
   const config = await getAcpConfig();
-  const backends = createBackends({
-    botToken: 'probe',
-    allowedUserId: 1,
-    pollTimeoutSeconds: 1,
-    flushIntervalMs: 1,
-    liveEditIntervalMs: 1,
-    defaultAcpCommand: '',
+  const agents = createAcpAgents({
     ...config,
   });
-  const backend = backends.get(config.defaultBackend);
-  if (!backend)
-    throw new Error(
-      `Default backend is not configured: ${config.defaultBackend}`,
-    );
-  backend.on('message', (message) => console.log(JSON.stringify(message)));
-  backend.on('stderr', (value) => {
+  const agent = agents.get(config.defaultAgent);
+  if (!agent)
+    throw new Error(`Default agent is not configured: ${config.defaultAgent}`);
+  agent.on('message', (message) => console.log(JSON.stringify(message)));
+  agent.on('stderr', (value) => {
     const text = String(value).trim();
     if (text) console.error(text);
   });
-  await backend.initialize();
-  const session = await backend.createSession({ cwd: config.defaultCwd });
-  const result = await backend.prompt({
+  await agent.initialize();
+  const session = await agent.createSession({ cwd: config.defaultCwd });
+  const result = await agent.prompt({
     sessionId: session.sessionId,
     text: 'Ответь ровно одним словом: PONG. Не запускай инструменты.',
   });
   console.log(JSON.stringify(result));
-  backend.stop();
+  agent.stop();
 }
 
 program.parseAsync(process.argv).catch((error: unknown) => {

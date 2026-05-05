@@ -2,8 +2,8 @@ import {
   isJsonObject,
   type JsonObject,
   type JsonValue,
-  type PermissionOption,
-} from '../../types';
+  type PermissionOptionDto,
+} from '../types';
 
 export function getAgentTextChunk(
   update: JsonValue | undefined,
@@ -88,9 +88,9 @@ function extractContentText(content: JsonValue | undefined): string | null {
 
 export function extractPermissionOptions(
   params: JsonValue | undefined,
-): PermissionOption[] {
+): PermissionOptionDto[] {
   if (!isRecord(params) || !Array.isArray(params.options)) return [];
-  const result: PermissionOption[] = [];
+  const result: PermissionOptionDto[] = [];
   for (const option of params.options) {
     if (!isRecord(option)) continue;
     const rawId = option.optionId ?? option.id;

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { BridgeSession, PendingPermission } from './types';
+import type { BridgeSessionDto, PendingPermissionDto } from './types';
 import { fileExists, readJson, writeJsonAtomic } from './utils/files';
 import { TOOL_DIR } from './utils/paths';
 
@@ -15,28 +15,30 @@ function permissionsPath(): string {
   return path.join(dataDir(), 'pending-permissions.json');
 }
 
-export async function readSessions(): Promise<BridgeSession[]> {
+export async function readSessions(): Promise<BridgeSessionDto[]> {
   const filePath = sessionsPath();
   if (!(await fileExists(filePath))) return [];
-  return readJson<BridgeSession[]>(filePath);
+  return readJson<BridgeSessionDto[]>(filePath);
 }
 
-export async function writeSessions(sessions: BridgeSession[]): Promise<void> {
+export async function writeSessions(
+  sessions: BridgeSessionDto[],
+): Promise<void> {
   await writeJsonAtomic(sessionsPath(), sessions);
 }
 
 export async function replaceSessions(
-  sessions: BridgeSession[],
+  sessions: BridgeSessionDto[],
 ): Promise<void> {
   await writeSessions(sessions);
 }
 
-export async function upsertSession(session: BridgeSession): Promise<void> {
+export async function upsertSession(session: BridgeSessionDto): Promise<void> {
   const sessions = await readSessions();
   const index = sessions.findIndex(
     (item) =>
       item.acpSessionId === session.acpSessionId &&
-      item.backendId === session.backendId,
+      item.agentId === session.agentId,
   );
   if (index === -1) {
     sessions.push(session);
@@ -48,7 +50,7 @@ export async function upsertSession(session: BridgeSession): Promise<void> {
 
 export async function getSessionByChat(
   chatId: number,
-): Promise<BridgeSession | undefined> {
+): Promise<BridgeSessionDto | undefined> {
   const sessions = await readSessions();
   return sessions
     .filter((item) => item.chatId === chatId)
@@ -57,7 +59,7 @@ export async function getSessionByChat(
 
 export async function requireSessionByChat(
   chatId: number,
-): Promise<BridgeSession> {
+): Promise<BridgeSessionDto> {
   const session = await getSessionByChat(chatId);
   if (!session) {
     throw new Error('No active ACP session. Send /new first.');
@@ -65,14 +67,14 @@ export async function requireSessionByChat(
   return session;
 }
 
-export async function readPermissions(): Promise<PendingPermission[]> {
+export async function readPermissions(): Promise<PendingPermissionDto[]> {
   const filePath = permissionsPath();
   if (!(await fileExists(filePath))) return [];
-  return readJson<PendingPermission[]>(filePath);
+  return readJson<PendingPermissionDto[]>(filePath);
 }
 
 export async function writePermissions(
-  permissions: PendingPermission[],
+  permissions: PendingPermissionDto[],
 ): Promise<void> {
   await writeJsonAtomic(permissionsPath(), permissions);
 }
@@ -82,7 +84,7 @@ export async function clearPermissions(): Promise<void> {
 }
 
 export async function savePermission(
-  permission: PendingPermission,
+  permission: PendingPermissionDto,
 ): Promise<void> {
   const permissions = await readPermissions();
   const index = permissions.findIndex((item) => {
@@ -97,7 +99,7 @@ export async function savePermission(
 
 export async function takePermission(
   id: number | string,
-): Promise<PendingPermission | undefined> {
+): Promise<PendingPermissionDto | undefined> {
   const permissions = await readPermissions();
   const index = permissions.findIndex(
     (item) => item.callbackKey === String(id) || String(item.id) === String(id),
@@ -110,7 +112,7 @@ export async function takePermission(
 
 export async function getPermission(
   id: number | string,
-): Promise<PendingPermission | undefined> {
+): Promise<PendingPermissionDto | undefined> {
   const permissions = await readPermissions();
   return permissions.find(
     (item) => item.callbackKey === String(id) || String(item.id) === String(id),

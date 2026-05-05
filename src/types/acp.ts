@@ -1,3 +1,4 @@
+import type { EventEmitter } from 'node:events';
 import type { JsonObject, JsonValue } from './json';
 
 export type AcpRequestId = number | string;
@@ -45,4 +46,43 @@ export interface AcpPromptParams extends JsonObject {
 
 export interface AcpCancelParams extends JsonObject {
   sessionId: string;
+}
+
+export interface AcpAgentSessionDto {
+  sessionId: string;
+}
+
+export interface AcpAgentPromptResultDto {
+  stopReason: string;
+}
+
+export interface AcpAgentCreateSessionDto {
+  cwd: string;
+}
+
+export interface AcpAgentLoadSessionDto extends AcpAgentCreateSessionDto {
+  sessionId: string;
+}
+
+export interface AcpAgentPromptDto {
+  sessionId: string;
+  text: string;
+}
+
+export interface AcpAgentCancelDto {
+  sessionId: string;
+}
+
+export interface AcpAgent extends EventEmitter {
+  id: string;
+  label: string;
+
+  start(): void;
+  stop(): void;
+  initialize(): Promise<void>;
+  createSession(input: AcpAgentCreateSessionDto): Promise<AcpAgentSessionDto>;
+  loadSession(input: AcpAgentLoadSessionDto): Promise<void>;
+  prompt(input: AcpAgentPromptDto): Promise<AcpAgentPromptResultDto>;
+  cancel(input: AcpAgentCancelDto): void;
+  respond(requestId: AcpRequestId, result: JsonValue): void;
 }

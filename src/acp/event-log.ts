@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { JsonObject } from '../../types';
-import { ensureDir } from '../../utils/files';
-import { TOOL_DIR } from '../../utils/paths';
+import type { JsonObject } from '../types';
+import { ensureDir } from '../utils/files';
+import { TOOL_DIR } from '../utils/paths';
 
 export function defaultAcpEventLogPath(): string {
   return path.join(TOOL_DIR, 'data', 'acp-events.jsonl');

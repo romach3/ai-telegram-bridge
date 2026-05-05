@@ -7,14 +7,14 @@ to the host OS.
 ## Goal
 
 Install and start `ai-telegram-bridge` so one allowed Telegram user can control
-one configured ACP backend through a Telegram bot.
+one configured ACP agent through a Telegram bot.
 
 End state:
 
 - Node.js 22+ and npm are available on the host.
 - Local config exists without committing secrets.
 - The Telegram bot token and allowed user id are configured.
-- At least one ACP backend command is configured and verified on the host.
+- At least one ACP agent command is configured and verified on the host.
 - The bridge can start.
 - Optional autostart/autorestart is configured only after explicit approval.
 - The user knows how to update, inspect logs, and stop the service.
@@ -28,20 +28,20 @@ End state:
   current path and asking first.
 - Do not install Node, system packages, global npm packages, or service units
   without explicit confirmation.
-- Do not assume `codex-acp`, Gemini ACP, Claude, or any backend command exists.
-  Verify the selected backend command on the host.
-- Do not start a long-running service until config and backend command checks
+- Do not assume `codex-acp`, Gemini ACP, Claude, or any agent command exists.
+  Verify the selected agent command on the host.
+- Do not start a long-running service until config and agent command checks
   have passed.
 
 ## Initial Questions
 
 Ask these questions before making changes:
 
-1. Backend command:
+1. Agent command:
    - default `codex-acp`
    - another ACP command
 2. Workspace path:
-   - path the backend should use as its default working directory
+   - path the agent should use as its default working directory
 3. Autostart:
    - no autostart
    - systemd user service
@@ -111,10 +111,9 @@ Recommended `bot.json` shape:
   "botToken": "<telegram-bot-token>",
   "allowedUserId": 123456789,
   "defaultCwd": "/absolute/workspace/path",
-  "defaultBackend": "codex",
-  "backends": {
+  "defaultAgent": "codex",
+  "agents": {
     "codex": {
-      "type": "stdio-acp",
       "label": "Codex",
       "command": "codex-acp",
       "args": []
@@ -137,10 +136,10 @@ npm run build
 node dist/cli.js --help
 ```
 
-Verify backend command on the host:
+Verify agent command on the host:
 
 ```bash
-command -v <backend-command>
+command -v <agent-command>
 ```
 
 Run a minimal ACP probe after config exists:
@@ -208,7 +207,7 @@ Before saying install is complete:
 - `bot.json` exists and is ignored by git.
 - `git status --short` does not show secrets staged or tracked.
 - Node.js 22+ and npm were verified on the host.
-- Backend command was verified on the host.
+- Agent command was verified on the host.
 - Bridge process starts without config errors.
 - Telegram bot responds to `/help` or `/status`.
 - Logs are visible through the chosen runtime.
@@ -240,7 +239,7 @@ command the user chose.
 Finish with:
 
 - config path used
-- backend id and command configured
+- agent id and command configured
 - runtime status
 - autostart status
 - log command

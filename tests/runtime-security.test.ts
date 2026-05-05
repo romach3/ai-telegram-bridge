@@ -96,12 +96,12 @@ describe('runtime security helpers', () => {
     ).toBeUndefined();
   });
 
-  it('normalizes sessions by migrating missing backend id and pruning unknown backends', () => {
+  it('normalizes sessions by migrating missing agent id and pruning unknown agents', () => {
     const result = normalizeSessions(
       [
-        session({ acpSessionId: 'legacy', backendId: undefined }),
-        session({ acpSessionId: 'known', backendId: 'codex' }),
-        session({ acpSessionId: 'missing', backendId: 'removed' }),
+        session({ acpSessionId: 'legacy', agentId: undefined }),
+        session({ acpSessionId: 'known', agentId: 'codex' }),
+        session({ acpSessionId: 'missing', agentId: 'removed' }),
       ],
       'codex',
       new Set(['codex']),
@@ -109,17 +109,17 @@ describe('runtime security helpers', () => {
 
     expect(result.changed).toBe(true);
     expect(result.sessions).toEqual([
-      expect.objectContaining({ acpSessionId: 'legacy', backendId: 'codex' }),
-      expect.objectContaining({ acpSessionId: 'known', backendId: 'codex' }),
+      expect.objectContaining({ acpSessionId: 'legacy', agentId: 'codex' }),
+      expect.objectContaining({ acpSessionId: 'known', agentId: 'codex' }),
     ]);
   });
 });
 
-function session(input: { acpSessionId: string; backendId?: string }) {
+function session(input: { acpSessionId: string; agentId?: string }) {
   return {
     telegramUserId: 1,
     chatId: 1,
-    backendId: input.backendId,
+    agentId: input.agentId,
     acpSessionId: input.acpSessionId,
     cwd: '/repo',
     status: 'idle' as const,

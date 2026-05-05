@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { appendAcpEventLog } from '../src/backend/acp/event-log';
+import { appendAcpEventLog } from '../src/acp/event-log';
 
 describe('ACP event log', () => {
   it('appends JSONL entries and creates parent directories', async () => {
