@@ -44,11 +44,14 @@ Run after code changes:
 npm test
 npm run lint
 npm run format:check
+npm run coverage
 npm run build
 node dist/cli.js --help
 ```
 
-`npm test` runs TypeScript typecheck and `biome check`.
+`npm test` runs TypeScript typecheck, `biome check`, and the Vitest suite.
+Coverage thresholds are a deliberately honest all-files baseline; raise them
+only when adding meaningful runtime or Telegram API tests.
 
 ## Architecture Map
 

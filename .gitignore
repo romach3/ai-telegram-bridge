@@ -3,4 +3,5 @@ bot.json
 data/*
 !data/.gitkeep
 dist/
+coverage/
 node_modules/

@@ -3,17 +3,26 @@ import type { BridgeSession, PendingPermission } from './types';
 import { fileExists, readJson, writeJsonAtomic } from './utils/files';
 import { TOOL_DIR } from './utils/paths';
 
-const DATA_DIR = path.join(TOOL_DIR, 'data');
-const SESSIONS_PATH = path.join(DATA_DIR, 'sessions.json');
-const PERMISSIONS_PATH = path.join(DATA_DIR, 'pending-permissions.json');
+function dataDir(): string {
+  return process.env.AI_TELEGRAM_DATA_DIR ?? path.join(TOOL_DIR, 'data');
+}
+
+function sessionsPath(): string {
+  return path.join(dataDir(), 'sessions.json');
+}
+
+function permissionsPath(): string {
+  return path.join(dataDir(), 'pending-permissions.json');
+}
 
 export async function readSessions(): Promise<BridgeSession[]> {
-  if (!(await fileExists(SESSIONS_PATH))) return [];
-  return readJson<BridgeSession[]>(SESSIONS_PATH);
+  const filePath = sessionsPath();
+  if (!(await fileExists(filePath))) return [];
+  return readJson<BridgeSession[]>(filePath);
 }
 
 export async function writeSessions(sessions: BridgeSession[]): Promise<void> {
-  await writeJsonAtomic(SESSIONS_PATH, sessions);
+  await writeJsonAtomic(sessionsPath(), sessions);
 }
 
 export async function upsertSession(session: BridgeSession): Promise<void> {
@@ -51,14 +60,15 @@ export async function requireSessionByChat(
 }
 
 export async function readPermissions(): Promise<PendingPermission[]> {
-  if (!(await fileExists(PERMISSIONS_PATH))) return [];
-  return readJson<PendingPermission[]>(PERMISSIONS_PATH);
+  const filePath = permissionsPath();
+  if (!(await fileExists(filePath))) return [];
+  return readJson<PendingPermission[]>(filePath);
 }
 
 export async function writePermissions(
   permissions: PendingPermission[],
 ): Promise<void> {
-  await writeJsonAtomic(PERMISSIONS_PATH, permissions);
+  await writeJsonAtomic(permissionsPath(), permissions);
 }
 
 export async function savePermission(

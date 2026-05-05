@@ -11,11 +11,14 @@ type AcpConfig = Pick<
 
 const DEFAULT_ACP_COMMAND = 'codex-acp';
 const DEFAULT_BACKEND = 'codex';
-const BOT_CONFIG_PATH = path.join(TOOL_DIR, 'bot.json');
+function botConfigPath(): string {
+  return process.env.AI_TELEGRAM_CONFIG_PATH ?? path.join(TOOL_DIR, 'bot.json');
+}
 
 export async function getBridgeConfig(): Promise<BridgeConfig> {
-  const fileConfig = (await fileExists(BOT_CONFIG_PATH))
-    ? await readJson<PartialConfig>(BOT_CONFIG_PATH)
+  const configPath = botConfigPath();
+  const fileConfig = (await fileExists(configPath))
+    ? await readJson<PartialConfig>(configPath)
     : {};
   const botToken = process.env.AI_TELEGRAM_BOT_TOKEN ?? fileConfig.botToken;
   const allowedUserId = Number(
@@ -60,8 +63,9 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
 }
 
 export async function getAcpConfig(): Promise<AcpConfig> {
-  const fileConfig = (await fileExists(BOT_CONFIG_PATH))
-    ? await readJson<PartialConfig>(BOT_CONFIG_PATH)
+  const configPath = botConfigPath();
+  const fileConfig = (await fileExists(configPath))
+    ? await readJson<PartialConfig>(configPath)
     : {};
   const defaultAcpCommand =
     process.env.AI_TELEGRAM_ACP_COMMAND ??

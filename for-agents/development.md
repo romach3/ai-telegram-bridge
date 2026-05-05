@@ -49,12 +49,15 @@ Run these after code changes:
 npm test
 npm run lint
 npm run format:check
+npm run coverage
 npm run build
 node dist/cli.js --help
 ```
 
-`npm test` runs TypeScript typecheck and `biome check`. Use
-`npm run format` for intentional formatting changes.
+`npm test` runs TypeScript typecheck, `biome check`, and the Vitest suite. Use
+`npm run format` for intentional formatting changes. Coverage thresholds are a
+deliberately honest all-files baseline; raise them only with meaningful runtime
+or Telegram API tests.
 
 Useful publish checks:
 
