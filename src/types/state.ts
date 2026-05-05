@@ -1,7 +1,11 @@
-import { AcpRequestId } from './acp';
-import { JsonValue } from './json';
+import type { AcpRequestId } from './acp';
+import type { JsonValue } from './json';
 
-export type BridgeSessionStatus = 'idle' | 'running' | 'waiting_permission' | 'failed';
+export type BridgeSessionStatus =
+  | 'idle'
+  | 'running'
+  | 'waiting_permission'
+  | 'failed';
 
 export interface BridgeSession {
   telegramUserId: number;

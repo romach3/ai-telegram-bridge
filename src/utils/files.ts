@@ -19,7 +19,10 @@ export async function readJson<T>(filePath: string): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-export async function writeJsonAtomic<T>(filePath: string, value: T): Promise<void> {
+export async function writeJsonAtomic<T>(
+  filePath: string,
+  value: T,
+): Promise<void> {
   await ensureDir(path.dirname(filePath));
   const tmp = `${filePath}.tmp`;
   await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, 'utf8');

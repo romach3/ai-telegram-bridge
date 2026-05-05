@@ -1,6 +1,6 @@
-import { EventEmitter } from 'node:events';
-import { AcpRequestId } from './acp';
-import { JsonValue } from './json';
+import type { EventEmitter } from 'node:events';
+import type { AcpRequestId } from './acp';
+import type { JsonValue } from './json';
 
 export interface BackendSession {
   sessionId: string;

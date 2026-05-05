@@ -42,9 +42,13 @@ Run after code changes:
 
 ```bash
 npm test
+npm run lint
+npm run format:check
 npm run build
 node dist/cli.js --help
 ```
+
+`npm test` runs TypeScript typecheck and `biome check`.
 
 ## Architecture Map
 

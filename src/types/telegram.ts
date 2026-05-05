@@ -1,4 +1,4 @@
-import { BotCommand, InlineKeyboardMarkup } from 'grammy/types';
+import type { BotCommand, InlineKeyboardMarkup } from 'grammy/types';
 
 export type { BotCommand, InlineKeyboardMarkup };
 

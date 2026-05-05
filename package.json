@@ -11,8 +11,11 @@
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit",
     "build": "tsup",
-    "test": "npm run typecheck",
-    "lint": "echo \"No lint yet\""
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check": "biome check .",
+    "test": "npm run typecheck && npm run check"
   },
   "dependencies": {
     "commander": "^14.0.3",
@@ -20,6 +23,7 @@
     "telegramify-markdown": "^1.3.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@types/node": "^22.10.1",
     "tsup": "^8.2.4",
     "tsx": "^4.19.2",

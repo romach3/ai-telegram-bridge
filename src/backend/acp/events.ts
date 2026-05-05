@@ -1,6 +1,13 @@
-import { JsonObject, JsonValue, PermissionOption, isJsonObject } from '../../types';
+import {
+  isJsonObject,
+  type JsonObject,
+  type JsonValue,
+  type PermissionOption,
+} from '../../types';
 
-export function getAgentTextChunk(update: JsonValue | undefined): string | null {
+export function getAgentTextChunk(
+  update: JsonValue | undefined,
+): string | null {
   if (!isRecord(update)) return null;
   if (update.sessionUpdate !== 'agent_message_chunk') return null;
   const content = update.content;
@@ -8,7 +15,9 @@ export function getAgentTextChunk(update: JsonValue | undefined): string | null 
   return typeof content.text === 'string' ? content.text : null;
 }
 
-export function getAgentThoughtChunk(update: JsonValue | undefined): string | null {
+export function getAgentThoughtChunk(
+  update: JsonValue | undefined,
+): string | null {
   if (!isRecord(update)) return null;
   if (update.sessionUpdate !== 'agent_thought_chunk') return null;
   const content = update.content;
@@ -54,7 +63,11 @@ function extractToolOutput(update: JsonObject): string | null {
   const rawOutput = update.rawOutput;
   if (typeof rawOutput === 'string') return rawOutput;
   if (isRecord(rawOutput)) {
-    const formatted = rawOutput.formatted_output ?? rawOutput.aggregated_output ?? rawOutput.stdout ?? rawOutput.stderr;
+    const formatted =
+      rawOutput.formatted_output ??
+      rawOutput.aggregated_output ??
+      rawOutput.stdout ??
+      rawOutput.stderr;
     if (typeof formatted === 'string' && formatted.trim()) return formatted;
   }
   return null;
@@ -66,13 +79,16 @@ function extractContentText(content: JsonValue | undefined): string | null {
   for (const item of content) {
     if (!isRecord(item) || !isRecord(item.content)) continue;
     const inner = item.content;
-    if (inner.type === 'text' && typeof inner.text === 'string') chunks.push(inner.text);
+    if (inner.type === 'text' && typeof inner.text === 'string')
+      chunks.push(inner.text);
   }
   const text = chunks.join('\n').trim();
   return text || null;
 }
 
-export function extractPermissionOptions(params: JsonValue | undefined): PermissionOption[] {
+export function extractPermissionOptions(
+  params: JsonValue | undefined,
+): PermissionOption[] {
   if (!isRecord(params) || !Array.isArray(params.options)) return [];
   const result: PermissionOption[] = [];
   for (const option of params.options) {
@@ -89,10 +105,14 @@ export function extractPermissionOptions(params: JsonValue | undefined): Permiss
 }
 
 export function extractSessionId(params: JsonValue | undefined): string | null {
-  return isRecord(params) && typeof params.sessionId === 'string' ? params.sessionId : null;
+  return isRecord(params) && typeof params.sessionId === 'string'
+    ? params.sessionId
+    : null;
 }
 
-export function extractUpdate(params: JsonValue | undefined): JsonValue | undefined {
+export function extractUpdate(
+  params: JsonValue | undefined,
+): JsonValue | undefined {
   return isRecord(params) ? params.update : null;
 }
 

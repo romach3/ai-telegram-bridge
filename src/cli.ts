@@ -5,17 +5,26 @@ import { serveBridge } from './runtime';
 
 const program = new Command();
 
-program.name('ai-telegram-bridge').description('Telegram bridge for ACP backends').version('0.1.0');
+program
+  .name('ai-telegram-bridge')
+  .description('Telegram bridge for ACP backends')
+  .version('0.1.0');
 
-program.command('serve').description('Start the Telegram bridge').action(async () => {
-  await serve();
-});
+program
+  .command('serve')
+  .description('Start the Telegram bridge')
+  .action(async () => {
+    await serve();
+  });
 
 const probe = program.command('probe').description('Run diagnostics');
 
-probe.command('acp').description('Start a minimal ACP probe session').action(async () => {
-  await probeAcp();
-});
+probe
+  .command('acp')
+  .description('Start a minimal ACP probe session')
+  .action(async () => {
+    await probeAcp();
+  });
 
 async function serve(): Promise<void> {
   const config = await getBridgeConfig();
@@ -34,7 +43,10 @@ async function probeAcp(): Promise<void> {
     ...config,
   });
   const backend = backends.get(config.defaultBackend);
-  if (!backend) throw new Error(`Default backend is not configured: ${config.defaultBackend}`);
+  if (!backend)
+    throw new Error(
+      `Default backend is not configured: ${config.defaultBackend}`,
+    );
   backend.on('message', (message) => console.log(JSON.stringify(message)));
   backend.on('stderr', (value) => {
     const text = String(value).trim();
@@ -42,7 +54,10 @@ async function probeAcp(): Promise<void> {
   });
   await backend.initialize();
   const session = await backend.createSession({ cwd: config.defaultCwd });
-  const result = await backend.prompt({ sessionId: session.sessionId, text: 'Ответь ровно одним словом: PONG. Не запускай инструменты.' });
+  const result = await backend.prompt({
+    sessionId: session.sessionId,
+    text: 'Ответь ровно одним словом: PONG. Не запускай инструменты.',
+  });
   console.log(JSON.stringify(result));
   backend.stop();
 }

@@ -1,4 +1,4 @@
-import { JsonObject, JsonValue } from './json';
+import type { JsonObject, JsonValue } from './json';
 
 export type AcpRequestId = number | string;
 

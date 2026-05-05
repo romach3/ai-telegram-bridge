@@ -1,10 +1,27 @@
+import type {
+  AcpBackend,
+  AcpCancelParams,
+  AcpInitializeParams,
+  AcpPromptParams,
+  AcpSessionParams,
+  BackendCancelInput,
+  BackendCreateSessionInput,
+  BackendLoadSessionInput,
+  BackendPromptInput,
+  BackendPromptResult,
+  BackendSession,
+  BridgeBackendConfig,
+} from '../../types';
 import { AcpClient } from './json-rpc-client';
-import { AcpBackend, AcpCancelParams, AcpInitializeParams, AcpPromptParams, AcpSessionParams, BackendCancelInput, BackendCreateSessionInput, BackendLoadSessionInput, BackendPromptInput, BackendPromptResult, BackendSession, BridgeBackendConfig } from '../../types';
 
 export class StdioAcpBackend extends AcpClient implements AcpBackend {
   readonly label: string;
 
-  constructor(readonly id: string, config: BridgeBackendConfig, defaultCwd: string) {
+  constructor(
+    readonly id: string,
+    config: BridgeBackendConfig,
+    defaultCwd: string,
+  ) {
     super(config.command, config.cwd ?? defaultCwd, config.args ?? []);
     this.label = config.label ?? id;
   }

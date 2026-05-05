@@ -1,6 +1,15 @@
 import { Bot, GrammyError } from 'grammy';
-import { MaybeInaccessibleMessage } from 'grammy/types';
-import { AnswerCallbackQueryInput, BotCommand, BridgeCallback, BridgeTextMessage, DeleteMessageInput, EditMessageTextInput, SendChatActionInput, SendMessageInput } from '../types';
+import type { MaybeInaccessibleMessage } from 'grammy/types';
+import type {
+  AnswerCallbackQueryInput,
+  BotCommand,
+  BridgeCallback,
+  BridgeTextMessage,
+  DeleteMessageInput,
+  EditMessageTextInput,
+  SendChatActionInput,
+  SendMessageInput,
+} from '../types';
 
 export class TelegramBotApi {
   private readonly bot: Bot;
@@ -61,10 +70,15 @@ export class TelegramBotApi {
 
   async editMessageText(input: EditMessageTextInput): Promise<void> {
     try {
-      await this.bot.api.editMessageText(input.chatId, input.messageId, input.text, {
-        parse_mode: 'MarkdownV2',
-        link_preview_options: { is_disabled: true },
-      });
+      await this.bot.api.editMessageText(
+        input.chatId,
+        input.messageId,
+        input.text,
+        {
+          parse_mode: 'MarkdownV2',
+          link_preview_options: { is_disabled: true },
+        },
+      );
     } catch (error) {
       if (isTelegramDescription(error, 'message is not modified')) return;
       throw error;
@@ -84,11 +98,15 @@ export class TelegramBotApi {
   }
 
   async answerCallbackQuery(input: AnswerCallbackQueryInput): Promise<void> {
-    await this.bot.api.answerCallbackQuery(input.callbackQueryId, { text: input.text });
+    await this.bot.api.answerCallbackQuery(input.callbackQueryId, {
+      text: input.text,
+    });
   }
 }
 
-function accessibleMessage(message: MaybeInaccessibleMessage | undefined): Extract<MaybeInaccessibleMessage, { date: number }> | undefined {
+function accessibleMessage(
+  message: MaybeInaccessibleMessage | undefined,
+): Extract<MaybeInaccessibleMessage, { date: number }> | undefined {
   if (!message || !('date' in message)) return undefined;
   return message;
 }

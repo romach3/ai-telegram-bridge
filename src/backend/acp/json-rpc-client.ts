@@ -1,7 +1,7 @@
-import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
+import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import readline from 'node:readline';
-import { AcpJsonRpcMessage, AcpRequestId, JsonValue } from '../../types';
+import type { AcpJsonRpcMessage, AcpRequestId, JsonValue } from '../../types';
 
 interface PendingRequest {
   resolve(value: JsonValue | undefined): void;
@@ -13,7 +13,11 @@ export class AcpClient extends EventEmitter {
   private nextId = 1;
   private readonly pending = new Map<number, PendingRequest>();
 
-  constructor(private readonly command: string, private readonly cwd: string, private readonly args: string[] = []) {
+  constructor(
+    private readonly command: string,
+    private readonly cwd: string,
+    private readonly args: string[] = [],
+  ) {
     super();
   }
 
@@ -28,11 +32,15 @@ export class AcpClient extends EventEmitter {
 
     const stdout = readline.createInterface({ input: this.process.stdout });
     stdout.on('line', (line) => this.handleLine(line));
-    this.process.stderr.on('data', (data) => this.emit('stderr', data.toString()));
+    this.process.stderr.on('data', (data) =>
+      this.emit('stderr', data.toString()),
+    );
     this.process.on('exit', (code, signal) => {
       this.emit('exit', { code, signal });
       for (const pending of this.pending.values()) {
-        pending.reject(new Error(`ACP process exited: ${code ?? signal ?? 'unknown'}`));
+        pending.reject(
+          new Error(`ACP process exited: ${code ?? signal ?? 'unknown'}`),
+        );
       }
       this.pending.clear();
     });
@@ -76,7 +84,10 @@ export class AcpClient extends EventEmitter {
       params,
     };
     const response = new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (value: JsonValue | undefined) => void, reject });
+      this.pending.set(id, {
+        resolve: resolve as (value: JsonValue | undefined) => void,
+        reject,
+      });
     });
     this.write(message);
     return response;

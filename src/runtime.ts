@@ -1,13 +1,41 @@
 import { randomBytes } from 'node:crypto';
-import { appendAcpEventLog, defaultAcpEventLogPath } from './backend/acp/event-log';
-import { describeUpdate, extractPermissionOptions, extractSessionId, extractUpdate, getAgentTextChunk, getAgentThoughtChunk, getUserTextChunk, isRecord } from './backend/acp/events';
+import {
+  appendAcpEventLog,
+  defaultAcpEventLogPath,
+} from './backend/acp/event-log';
+import {
+  describeUpdate,
+  extractPermissionOptions,
+  extractSessionId,
+  extractUpdate,
+  getAgentTextChunk,
+  getAgentThoughtChunk,
+  getUserTextChunk,
+  isRecord,
+} from './backend/acp/events';
 import { createBackends } from './backend/registry';
-import { readSessions, requireSessionByChat, savePermission, takePermission, upsertSession } from './state';
+import {
+  readSessions,
+  requireSessionByChat,
+  savePermission,
+  takePermission,
+  upsertSession,
+} from './state';
 import { TelegramBotApi } from './telegram/bot-api';
 import { codeBlock, inlineCode, plainText } from './telegram/markdown';
-import { renderTelegramMarkdownChunks, sendTelegramChunks } from './telegram/messages';
-import { AcpBackend, BridgeCallback, BridgeConfig, BridgeSession, BridgeTextMessage, JsonObject, JsonValue } from './types';
-import { splitTelegramText } from './utils/chunks';
+import {
+  renderTelegramMarkdownChunks,
+  sendTelegramChunks,
+} from './telegram/messages';
+import type {
+  AcpBackend,
+  BridgeCallback,
+  BridgeConfig,
+  BridgeSession,
+  BridgeTextMessage,
+  JsonObject,
+  JsonValue,
+} from './types';
 import { log, warn } from './utils/logger';
 
 export class BridgeRuntime {
@@ -31,10 +59,6 @@ export class BridgeRuntime {
   private technicalLogText = '';
   private toolStatusTimer?: NodeJS.Timeout;
   private toolStatusLastText = '';
-  private liveOutputMessageId?: number;
-  private liveOutputText = '';
-  private liveOutputTimer?: NodeJS.Timeout;
-  private liveOutputLastText = '';
   private readonly loadedSessions = new Set<string>();
   private readonly initializedBackends = new Set<string>();
 
@@ -42,7 +66,10 @@ export class BridgeRuntime {
     this.bot = new TelegramBotApi(config.botToken);
     this.backends = createBackends(config);
     for (const backend of this.backends.values()) {
-      backend.on('message', (message) => void this.handleAcpMessage(backend.id, message));
+      backend.on(
+        'message',
+        (message) => void this.handleAcpMessage(backend.id, message),
+      );
       backend.on('stderr', (value) => {
         const text = String(value).trim();
         if (text) warn(`[${backend.id}] ${text}`);
@@ -56,7 +83,11 @@ export class BridgeRuntime {
     await this.registerTelegramCommands();
     this.bot.onText((message) => this.handleTextEvent(message));
     this.bot.onCallback((callback) => this.handleCallbackEvent(callback));
-    this.bot.onError((error) => warn(`Telegram bot failed: ${error instanceof Error ? error.message : String(error)}`));
+    this.bot.onError((error) =>
+      warn(
+        `Telegram bot failed: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
     log(`ACP backend initialized: ${backend.id}`);
     await this.bot.start(this.config.pollTimeoutSeconds);
   }
@@ -78,9 +109,15 @@ export class BridgeRuntime {
     }
   }
 
-  private async reportBridgeError(chatId: number, error: unknown): Promise<void> {
+  private async reportBridgeError(
+    chatId: number,
+    error: unknown,
+  ): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
-    await this.bot.sendMessage({ chatId, text: plainText(`Bridge error: ${message}`) });
+    await this.bot.sendMessage({
+      chatId,
+      text: plainText(`Bridge error: ${message}`),
+    });
     warn(message);
   }
 
@@ -128,7 +165,10 @@ export class BridgeRuntime {
     }
 
     if (text.startsWith('/')) {
-      await this.bot.sendMessage({ chatId, text: `${plainText('Unknown command:')} ${inlineCode(text.split(/\s+/)[0])}\n${plainText('Send /help.')}` });
+      await this.bot.sendMessage({
+        chatId,
+        text: `${plainText('Unknown command:')} ${inlineCode(text.split(/\s+/)[0])}\n${plainText('Send /help.')}`,
+      });
       return;
     }
 
@@ -140,29 +180,51 @@ export class BridgeRuntime {
     await this.ensureBackendInitialized(backend);
     const result = await backend.createSession({ cwd });
     this.loadedSessions.add(sessionKey(backend.id, result.sessionId));
-    await upsertSession(this.makeSession(chatId, backend.id, result.sessionId, cwd, 'idle'));
-    await this.bot.sendMessage({ chatId, text: `${plainText(`New ${backend.label} session:`)}\n${codeBlock(result.sessionId)}` });
+    await upsertSession(
+      this.makeSession(chatId, backend.id, result.sessionId, cwd, 'idle'),
+    );
+    await this.bot.sendMessage({
+      chatId,
+      text: `${plainText(`New ${backend.label} session:`)}\n${codeBlock(result.sessionId)}`,
+    });
   }
 
   private async handleLoad(chatId: number, text: string): Promise<void> {
     const [, sessionId, backendOrCwd, maybeCwd] = text.split(/\s+/);
     if (!sessionId) {
-      await this.bot.sendMessage({ chatId, text: plainText('Usage: /load <sessionId> [backend] [cwd]') });
+      await this.bot.sendMessage({
+        chatId,
+        text: plainText('Usage: /load <sessionId> [backend] [cwd]'),
+      });
       return;
     }
-    const backend = backendOrCwd && this.backends.has(backendOrCwd) ? this.getBackend(backendOrCwd) : this.defaultBackend();
-    const cwd = backendOrCwd && this.backends.has(backendOrCwd) ? maybeCwd ?? this.config.defaultCwd : backendOrCwd ?? this.config.defaultCwd;
+    const backend =
+      backendOrCwd && this.backends.has(backendOrCwd)
+        ? this.getBackend(backendOrCwd)
+        : this.defaultBackend();
+    const cwd =
+      backendOrCwd && this.backends.has(backendOrCwd)
+        ? (maybeCwd ?? this.config.defaultCwd)
+        : (backendOrCwd ?? this.config.defaultCwd);
     await this.ensureBackendInitialized(backend);
     await backend.loadSession({ sessionId, cwd });
     this.loadedSessions.add(sessionKey(backend.id, sessionId));
-    await upsertSession(this.makeSession(chatId, backend.id, sessionId, cwd, 'idle'));
-    await this.bot.sendMessage({ chatId, text: `${plainText(`Loaded ${backend.label} session:`)}\n${codeBlock(sessionId)}` });
+    await upsertSession(
+      this.makeSession(chatId, backend.id, sessionId, cwd, 'idle'),
+    );
+    await this.bot.sendMessage({
+      chatId,
+      text: `${plainText(`Loaded ${backend.label} session:`)}\n${codeBlock(sessionId)}`,
+    });
   }
 
   private async handleResume(chatId: number): Promise<void> {
     const sessions = await this.recentSessions(chatId);
     if (!sessions.length) {
-      await this.bot.sendMessage({ chatId, text: plainText('No locally known sessions. Send /new first.') });
+      await this.bot.sendMessage({
+        chatId,
+        text: plainText('No locally known sessions. Send /new first.'),
+      });
       return;
     }
     const keyboard = sessions.map((session, index) => [
@@ -180,7 +242,11 @@ export class BridgeRuntime {
 
   private async handleCompact(chatId: number): Promise<void> {
     if (this.activePrompt) {
-      await this.updateToolStatus(chatId, this.toolStatusText || 'ACP backend is still running. Send /cancel to stop the current turn.');
+      await this.updateToolStatus(
+        chatId,
+        this.toolStatusText ||
+          'ACP backend is still running. Send /cancel to stop the current turn.',
+      );
       return;
     }
     const session = await requireSessionByChat(chatId);
@@ -196,14 +262,22 @@ export class BridgeRuntime {
     this.sawToolEvent = false;
     this.activeToolCallIds = new Set();
     await this.startTyping(chatId);
-    await upsertSession({ ...session, status: 'running', updatedAt: new Date().toISOString() });
+    await upsertSession({
+      ...session,
+      status: 'running',
+      updatedAt: new Date().toISOString(),
+    });
     void this.runPrompt(chatId, session, '/compact');
   }
 
   private async handleCancel(chatId: number): Promise<void> {
     const session = await requireSessionByChat(chatId);
     this.backendForSession(session).cancel({ sessionId: session.acpSessionId });
-    await upsertSession({ ...session, status: 'idle', updatedAt: new Date().toISOString() });
+    await upsertSession({
+      ...session,
+      status: 'idle',
+      updatedAt: new Date().toISOString(),
+    });
     await this.bot.sendMessage({ chatId, text: plainText('Cancel sent.') });
   }
 
@@ -224,10 +298,16 @@ export class BridgeRuntime {
   private async handleSessions(chatId: number): Promise<void> {
     const sessions = await readSessions();
     if (!sessions.length) {
-      await this.bot.sendMessage({ chatId, text: plainText('No locally known sessions.') });
+      await this.bot.sendMessage({
+        chatId,
+        text: plainText('No locally known sessions.'),
+      });
       return;
     }
-    const lines = sessions.map((session) => `${session.status} ${session.backendId ?? this.config.defaultBackend} ${session.acpSessionId} ${session.cwd}`);
+    const lines = sessions.map(
+      (session) =>
+        `${session.status} ${session.backendId ?? this.config.defaultBackend} ${session.acpSessionId} ${session.cwd}`,
+    );
     await this.bot.sendMessage({ chatId, text: codeBlock(lines.join('\n')) });
   }
 
@@ -242,19 +322,21 @@ export class BridgeRuntime {
   private async sendHelp(chatId: number): Promise<void> {
     await this.bot.sendMessage({
       chatId,
-      text: codeBlock([
-        '/new [backend] [cwd]',
-        '/resume',
-        '/compact',
-        '/load <sessionId> [backend] [cwd]',
-        '/status',
-        '/sessions',
-        '/backends',
-        '/cancel',
-        '/help',
-        '',
-        'Regular text is sent to the active ACP backend session.',
-      ].join('\n')),
+      text: codeBlock(
+        [
+          '/new [backend] [cwd]',
+          '/resume',
+          '/compact',
+          '/load <sessionId> [backend] [cwd]',
+          '/status',
+          '/sessions',
+          '/backends',
+          '/cancel',
+          '/help',
+          '',
+          'Regular text is sent to the active ACP backend session.',
+        ].join('\n'),
+      ),
     });
   }
 
@@ -278,7 +360,11 @@ export class BridgeRuntime {
 
   private async handlePrompt(chatId: number, text: string): Promise<void> {
     if (this.activePrompt) {
-      await this.updateToolStatus(chatId, this.toolStatusText || 'ACP backend is still running. Send /cancel to stop the current turn.');
+      await this.updateToolStatus(
+        chatId,
+        this.toolStatusText ||
+          'ACP backend is still running. Send /cancel to stop the current turn.',
+      );
       return;
     }
 
@@ -296,28 +382,54 @@ export class BridgeRuntime {
     this.sawToolEvent = false;
     this.activeToolCallIds = new Set();
     await this.startTyping(chatId);
-    await upsertSession({ ...session, status: 'running', updatedAt: new Date().toISOString() });
+    await upsertSession({
+      ...session,
+      status: 'running',
+      updatedAt: new Date().toISOString(),
+    });
     void this.runPrompt(chatId, session, promptText);
   }
 
-  private async runPrompt(chatId: number, session: BridgeSession, text: string): Promise<void> {
+  private async runPrompt(
+    chatId: number,
+    session: BridgeSession,
+    text: string,
+  ): Promise<void> {
     try {
-      const result = await this.backendForSession(session).prompt({ sessionId: session.acpSessionId, text });
+      const result = await this.backendForSession(session).prompt({
+        sessionId: session.acpSessionId,
+        text,
+      });
       await delay(1000);
       this.stopTyping();
       await this.sendFinalAnswer(chatId);
-      await this.clearLiveOutput(chatId);
-      await upsertSession({ ...session, status: 'idle', updatedAt: new Date().toISOString() });
+      await upsertSession({
+        ...session,
+        status: 'idle',
+        updatedAt: new Date().toISOString(),
+      });
       if (result.stopReason !== 'end_turn') {
-        await this.bot.sendMessage({ chatId, text: `${plainText('Turn finished:')} ${inlineCode(result.stopReason)}` });
+        await this.bot.sendMessage({
+          chatId,
+          text: `${plainText('Turn finished:')} ${inlineCode(result.stopReason)}`,
+        });
       }
     } catch (error) {
       this.stopTyping();
       await this.sendFinalAnswer(chatId);
-      await this.clearLiveOutput(chatId);
-      await upsertSession({ ...session, status: 'failed', updatedAt: new Date().toISOString() });
-      if (this.toolStatusMessageId) await this.finishToolStatus(chatId, 'Failed.');
-      await this.bot.sendMessage({ chatId, text: plainText(`ACP error: ${error instanceof Error ? error.message : String(error)}`) });
+      await upsertSession({
+        ...session,
+        status: 'failed',
+        updatedAt: new Date().toISOString(),
+      });
+      if (this.toolStatusMessageId)
+        await this.finishToolStatus(chatId, 'Failed.');
+      await this.bot.sendMessage({
+        chatId,
+        text: plainText(
+          `ACP error: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      });
     } finally {
       await this.resetActivePromptState();
     }
@@ -334,12 +446,18 @@ export class BridgeRuntime {
     const [, callbackKey, optionIndex] = data.split(':');
     const permission = await takePermission(callbackKey);
     if (!permission) {
-      await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: 'Permission request not found.' });
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Permission request not found.',
+      });
       return;
     }
     const option = permission.options[Number(optionIndex)];
     if (!option) {
-      await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: 'Permission option not found.' });
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Permission option not found.',
+      });
       return;
     }
     this.getBackend(permission.backendId ?? this.config.defaultBackend).respond(
@@ -351,42 +469,75 @@ export class BridgeRuntime {
         },
       },
     );
-    await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: `Selected: ${option.optionId}` });
+    await this.bot.answerCallbackQuery({
+      callbackQueryId: callback.id,
+      text: `Selected: ${option.optionId}`,
+    });
     if (permission.messageId) {
-      await this.bot.deleteMessage({ chatId: permission.chatId, messageId: permission.messageId });
+      await this.bot.deleteMessage({
+        chatId: permission.chatId,
+        messageId: permission.messageId,
+      });
     }
     const session = await requireSessionByChat(permission.chatId);
-    await upsertSession({ ...session, status: 'running', updatedAt: new Date().toISOString() });
+    await upsertSession({
+      ...session,
+      status: 'running',
+      updatedAt: new Date().toISOString(),
+    });
   }
 
-  private async handleResumeCallback(callback: BridgeCallback, data: string): Promise<void> {
+  private async handleResumeCallback(
+    callback: BridgeCallback,
+    data: string,
+  ): Promise<void> {
     const chatId = callback.chatId;
     if (!chatId) return;
     if (this.activePrompt) {
-      await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: 'ACP backend is still running.' });
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'ACP backend is still running.',
+      });
       return;
     }
     const [, rawIndex] = data.split(':');
     const sessions = await this.recentSessions(chatId);
     const session = sessions[Number(rawIndex)];
     if (!session) {
-      await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: 'Session not found.' });
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Session not found.',
+      });
       return;
     }
     const backend = this.backendForSession(session);
     await this.ensureBackendInitialized(backend);
-    await backend.loadSession({ sessionId: session.acpSessionId, cwd: session.cwd });
+    await backend.loadSession({
+      sessionId: session.acpSessionId,
+      cwd: session.cwd,
+    });
     this.loadedSessions.add(sessionKey(backend.id, session.acpSessionId));
-    await upsertSession({ ...session, status: 'idle', updatedAt: new Date().toISOString() });
-    await this.bot.answerCallbackQuery({ callbackQueryId: callback.id, text: 'Session loaded.' });
-    if (callback.messageId) await this.bot.deleteMessage({ chatId, messageId: callback.messageId });
+    await upsertSession({
+      ...session,
+      status: 'idle',
+      updatedAt: new Date().toISOString(),
+    });
+    await this.bot.answerCallbackQuery({
+      callbackQueryId: callback.id,
+      text: 'Session loaded.',
+    });
+    if (callback.messageId)
+      await this.bot.deleteMessage({ chatId, messageId: callback.messageId });
     await this.bot.sendMessage({
       chatId,
       text: `${plainText(`Resumed ${backend.label} session:`)}\n${codeBlock(session.acpSessionId)}\n${plainText('CWD:')}\n${codeBlock(session.cwd)}`,
     });
   }
 
-  private async handleAcpMessage(backendId: string, message: unknown): Promise<void> {
+  private async handleAcpMessage(
+    backendId: string,
+    message: unknown,
+  ): Promise<void> {
     if (!isRecord(message) || typeof message.method !== 'string') return;
     void this.logAcpEvent({ backendId, ...message });
     if (message.method === 'session/update') {
@@ -410,8 +561,11 @@ export class BridgeRuntime {
         if (!this.sawToolEvent || this.activeToolCallIds.size > 0) {
           this.currentAgentStatusSegment += chunk;
           if (this.activeChatId) {
-            const statusLine = extractLatestStatusLine(this.currentAgentStatusSegment);
-            if (statusLine) await this.updateTechnicalThought(this.activeChatId, statusLine);
+            const statusLine = extractLatestStatusLine(
+              this.currentAgentStatusSegment,
+            );
+            if (statusLine)
+              await this.updateTechnicalThought(this.activeChatId, statusLine);
           }
           return;
         }
@@ -420,7 +574,11 @@ export class BridgeRuntime {
       }
       const thoughtChunk = getAgentThoughtChunk(update);
       if (thoughtChunk) {
-        if (this.activeChatId) await this.updateTechnicalThought(this.activeChatId, extractLatestStatusLine(thoughtChunk));
+        if (this.activeChatId)
+          await this.updateTechnicalThought(
+            this.activeChatId,
+            extractLatestStatusLine(thoughtChunk),
+          );
         return;
       }
       if (this.activeChatId && this.collectingCurrentPrompt) {
@@ -434,9 +592,21 @@ export class BridgeRuntime {
     }
   }
 
-  private async handlePermissionRequest(backendId: string, message: JsonObject): Promise<void> {
-    if (message.id === undefined || message.id === null || !this.activeChatId || !this.collectingCurrentPrompt) return;
-    const requestId = typeof message.id === 'string' || typeof message.id === 'number' ? message.id : null;
+  private async handlePermissionRequest(
+    backendId: string,
+    message: JsonObject,
+  ): Promise<void> {
+    if (
+      message.id === undefined ||
+      message.id === null ||
+      !this.activeChatId ||
+      !this.collectingCurrentPrompt
+    )
+      return;
+    const requestId =
+      typeof message.id === 'string' || typeof message.id === 'number'
+        ? message.id
+        : null;
     if (requestId === null) return;
     const options = extractPermissionOptions(message.params);
     const sessionId = extractSessionId(message.params) ?? '';
@@ -459,13 +629,19 @@ export class BridgeRuntime {
       sessionId,
       backendId,
       messageId: sentMessageId,
-      toolCall: isRecord(message.params) ? message.params.toolCall ?? null : null,
+      toolCall: isRecord(message.params)
+        ? (message.params.toolCall ?? null)
+        : null,
       options,
       createdAt: new Date().toISOString(),
     });
     if (this.activeChatId) {
       const session = await requireSessionByChat(this.activeChatId);
-      await upsertSession({ ...session, status: 'waiting_permission', updatedAt: new Date().toISOString() });
+      await upsertSession({
+        ...session,
+        status: 'waiting_permission',
+        updatedAt: new Date().toISOString(),
+      });
     }
   }
 
@@ -491,8 +667,15 @@ export class BridgeRuntime {
     this.pendingUserText = target.startsWith(fresh) ? chunk : '';
   }
 
-  private async handleNonTextUpdate(chatId: number, update: JsonValue | undefined): Promise<void> {
-    if (isRecord(update) && (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update')) {
+  private async handleNonTextUpdate(
+    chatId: number,
+    update: JsonValue | undefined,
+  ): Promise<void> {
+    if (
+      isRecord(update) &&
+      (update.sessionUpdate === 'tool_call' ||
+        update.sessionUpdate === 'tool_call_update')
+    ) {
       if (update.sessionUpdate === 'tool_call') {
         await this.promotePendingAgentTextToTechnical(chatId);
         const description = describeUpdate(update);
@@ -507,26 +690,37 @@ export class BridgeRuntime {
       return;
     }
     const description = describeUpdate(update);
-    if (description && (!isRecord(update) || update.sessionUpdate !== 'tool_call')) {
+    if (
+      description &&
+      (!isRecord(update) || update.sessionUpdate !== 'tool_call')
+    ) {
       await this.updateTechnicalTool(chatId, description);
     }
   }
 
   private updateActiveToolCalls(update: JsonObject): void {
-    const toolCallId = typeof update.toolCallId === 'string' ? update.toolCallId : null;
+    const toolCallId =
+      typeof update.toolCallId === 'string' ? update.toolCallId : null;
     if (!toolCallId) return;
     const status = typeof update.status === 'string' ? update.status : '';
     if (status === 'in_progress' || status === 'pending') {
       this.activeToolCallIds.add(toolCallId);
       return;
     }
-    if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+    if (
+      status === 'completed' ||
+      status === 'failed' ||
+      status === 'cancelled'
+    ) {
       this.activeToolCallIds.delete(toolCallId);
     }
   }
 
-  private async promotePendingAgentTextToTechnical(chatId: number): Promise<void> {
-    const candidate = this.buffer.trim() || this.currentAgentStatusSegment.trim();
+  private async promotePendingAgentTextToTechnical(
+    chatId: number,
+  ): Promise<void> {
+    const candidate =
+      this.buffer.trim() || this.currentAgentStatusSegment.trim();
     if (!candidate) return;
     const statusLine = extractLatestStatusLine(candidate);
     this.buffer = '';
@@ -541,27 +735,43 @@ export class BridgeRuntime {
     this.technicalLogText = '';
   }
 
-  private async updateToolStatus(chatId: number, description: string): Promise<void> {
+  private async updateToolStatus(
+    chatId: number,
+    description: string,
+  ): Promise<void> {
     await this.updateTechnicalThought(chatId, description);
   }
 
-  private async updateTechnicalThought(chatId: number, description: string): Promise<void> {
+  private async updateTechnicalThought(
+    chatId: number,
+    description: string,
+  ): Promise<void> {
     this.technicalThoughtText = compactStatusText(description);
     await this.scheduleTechnicalFlush(chatId);
   }
 
-  private async updateTechnicalTool(chatId: number, description: string): Promise<void> {
+  private async updateTechnicalTool(
+    chatId: number,
+    description: string,
+  ): Promise<void> {
     this.technicalToolText = compactStatusText(description);
     await this.scheduleTechnicalFlush(chatId);
   }
 
-  private async updateTechnicalLog(chatId: number, description: string): Promise<void> {
+  private async updateTechnicalLog(
+    chatId: number,
+    description: string,
+  ): Promise<void> {
     this.technicalLogText = compactStatusText(description);
     await this.scheduleTechnicalFlush(chatId);
   }
 
   private async scheduleTechnicalFlush(chatId: number): Promise<void> {
-    this.toolStatusText = renderTechnicalStatus(this.technicalThoughtText, this.technicalToolText, this.technicalLogText);
+    this.toolStatusText = renderTechnicalStatus(
+      this.technicalThoughtText,
+      this.technicalToolText,
+      this.technicalLogText,
+    );
     if (this.toolStatusTimer) return;
     this.toolStatusTimer = setTimeout(() => {
       this.toolStatusTimer = undefined;
@@ -570,7 +780,11 @@ export class BridgeRuntime {
   }
 
   private async flushToolStatus(chatId: number): Promise<void> {
-    this.toolStatusText = renderTechnicalStatus(this.technicalThoughtText, this.technicalToolText, this.technicalLogText);
+    this.toolStatusText = renderTechnicalStatus(
+      this.technicalThoughtText,
+      this.technicalToolText,
+      this.technicalLogText,
+    );
     if (!this.toolStatusText) return;
     const text = statusCodeBlock(this.toolStatusText);
     if (text === this.toolStatusLastText) return;
@@ -584,25 +798,15 @@ export class BridgeRuntime {
       return;
     }
     try {
-      await this.bot.editMessageText({ chatId, messageId: this.toolStatusMessageId, text });
+      await this.bot.editMessageText({
+        chatId,
+        messageId: this.toolStatusMessageId,
+        text,
+      });
       this.toolStatusLastText = text;
     } catch (error) {
       warn(`Telegram technical status edit skipped: ${errorMessage(error)}`);
     }
-  }
-
-  private async clearToolStatus(): Promise<void> {
-    if (this.toolStatusTimer) {
-      clearTimeout(this.toolStatusTimer);
-      this.toolStatusTimer = undefined;
-    }
-    if (this.activeChatId && this.toolStatusMessageId) {
-      await this.bot.deleteMessage({ chatId: this.activeChatId, messageId: this.toolStatusMessageId });
-    }
-    this.toolStatusMessageId = undefined;
-    this.toolStatusText = '';
-    this.toolStatusLastText = '';
-    this.resetTechnicalText();
   }
 
   private releaseToolStatus(): void {
@@ -622,49 +826,12 @@ export class BridgeRuntime {
       this.toolStatusTimer = undefined;
     }
     this.technicalThoughtText = compactStatusText(text);
-    this.toolStatusText = renderTechnicalStatus(this.technicalThoughtText, this.technicalToolText, this.technicalLogText);
+    this.toolStatusText = renderTechnicalStatus(
+      this.technicalThoughtText,
+      this.technicalToolText,
+      this.technicalLogText,
+    );
     await this.flushToolStatus(chatId);
-  }
-
-  private async updateLiveOutput(chatId: number, output: string): Promise<void> {
-    this.liveOutputText = compactStatusText(output);
-    if (this.liveOutputTimer) return;
-    this.liveOutputTimer = setTimeout(() => {
-      this.liveOutputTimer = undefined;
-      void this.flushLiveOutput(chatId);
-    }, 350);
-  }
-
-  private async flushLiveOutput(chatId: number): Promise<void> {
-    if (!this.liveOutputText) return;
-    const text = statusCodeBlock(this.liveOutputText);
-    if (text === this.liveOutputLastText) return;
-    if (!this.liveOutputMessageId) {
-      try {
-        this.liveOutputMessageId = await this.bot.sendMessage({ chatId, text });
-        this.liveOutputLastText = text;
-      } catch (error) {
-        warn(`Telegram live output send skipped: ${errorMessage(error)}`);
-      }
-      return;
-    }
-    try {
-      await this.bot.editMessageText({ chatId, messageId: this.liveOutputMessageId, text });
-      this.liveOutputLastText = text;
-    } catch (error) {
-      warn(`Telegram live output edit skipped: ${errorMessage(error)}`);
-    }
-  }
-
-  private async clearLiveOutput(chatId: number): Promise<void> {
-    if (this.liveOutputTimer) {
-      clearTimeout(this.liveOutputTimer);
-      this.liveOutputTimer = undefined;
-    }
-    if (this.liveOutputMessageId) await this.bot.deleteMessage({ chatId, messageId: this.liveOutputMessageId });
-    this.liveOutputMessageId = undefined;
-    this.liveOutputText = '';
-    this.liveOutputLastText = '';
   }
 
   private async startTyping(chatId: number): Promise<void> {
@@ -688,8 +855,13 @@ export class BridgeRuntime {
   }
 
   private async sendFinalAnswer(chatId: number): Promise<void> {
-    const answer = this.buffer.trim() || this.currentAgentStatusSegment.trim() || this.preToolAgentBuffer.trim();
-    log(`final answer buffer chars=${this.buffer.length} pre-tool chars=${this.preToolAgentBuffer.length} sawTool=${this.sawToolEvent} send chars=${answer.length}`);
+    const answer =
+      this.buffer.trim() ||
+      this.currentAgentStatusSegment.trim() ||
+      this.preToolAgentBuffer.trim();
+    log(
+      `final answer buffer chars=${this.buffer.length} pre-tool chars=${this.preToolAgentBuffer.length} sawTool=${this.sawToolEvent} send chars=${answer.length}`,
+    );
     if (!answer) return;
     try {
       if (this.toolStatusMessageId) {
@@ -704,13 +876,22 @@ export class BridgeRuntime {
     log('final answer sent');
   }
 
-  private async replaceTechnicalMessageWithAnswer(chatId: number, markdown: string): Promise<void> {
+  private async replaceTechnicalMessageWithAnswer(
+    chatId: number,
+    markdown: string,
+  ): Promise<void> {
     const chunks = renderTelegramMarkdownChunks(markdown);
     if (!chunks.length || !this.toolStatusMessageId) return;
     try {
-      await this.bot.editMessageText({ chatId, messageId: this.toolStatusMessageId, text: chunks[0] });
+      await this.bot.editMessageText({
+        chatId,
+        messageId: this.toolStatusMessageId,
+        text: chunks[0],
+      });
     } catch (error) {
-      warn(`Telegram final answer edit failed, sending as new message: ${errorMessage(error)}`);
+      warn(
+        `Telegram final answer edit failed, sending as new message: ${errorMessage(error)}`,
+      );
       await sendTelegramChunks(this.bot, chatId, markdown);
       this.toolStatusMessageId = undefined;
       this.toolStatusText = '';
@@ -727,7 +908,13 @@ export class BridgeRuntime {
     this.resetTechnicalText();
   }
 
-  private makeSession(chatId: number, backendId: string, acpSessionId: string, cwd: string, status: BridgeSession['status']): BridgeSession {
+  private makeSession(
+    chatId: number,
+    backendId: string,
+    acpSessionId: string,
+    cwd: string,
+    status: BridgeSession['status'],
+  ): BridgeSession {
     const now = new Date().toISOString();
     return {
       telegramUserId: this.config.allowedUserId,
@@ -746,21 +933,27 @@ export class BridgeRuntime {
     const key = sessionKey(backend.id, session.acpSessionId);
     if (this.loadedSessions.has(key)) return;
     await this.ensureBackendInitialized(backend);
-    await backend.loadSession({ sessionId: session.acpSessionId, cwd: session.cwd });
+    await backend.loadSession({
+      sessionId: session.acpSessionId,
+      cwd: session.cwd,
+    });
     this.loadedSessions.add(key);
   }
 
   private async recentSessions(chatId: number): Promise<BridgeSession[]> {
     const sessions = await readSessions();
     return sessions
-      .filter((session) => session.telegramUserId === this.config.allowedUserId && session.chatId === chatId)
+      .filter(
+        (session) =>
+          session.telegramUserId === this.config.allowedUserId &&
+          session.chatId === chatId,
+      )
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
       .slice(0, 5);
   }
 
   private async resetActivePromptState(): Promise<void> {
     this.stopTyping();
-    if (this.activeChatId) await this.clearLiveOutput(this.activeChatId);
     this.releaseToolStatus();
     this.pendingPromptText = '';
     this.pendingUserText = '';
@@ -797,18 +990,29 @@ export class BridgeRuntime {
   private parseNewArgs(text: string): { backend: AcpBackend; cwd: string } {
     const [, first, second] = text.split(/\s+/);
     if (first && this.backends.has(first)) {
-      return { backend: this.getBackend(first), cwd: second ?? this.config.defaultCwd };
+      return {
+        backend: this.getBackend(first),
+        cwd: second ?? this.config.defaultCwd,
+      };
     }
-    return { backend: this.defaultBackend(), cwd: first ?? this.config.defaultCwd };
+    return {
+      backend: this.defaultBackend(),
+      cwd: first ?? this.config.defaultCwd,
+    };
   }
 
   private async logAcpEvent(message: JsonObject): Promise<void> {
-    const filePath = this.config.acpEventLogPath === 'default' ? defaultAcpEventLogPath() : this.config.acpEventLogPath;
+    const filePath =
+      this.config.acpEventLogPath === 'default'
+        ? defaultAcpEventLogPath()
+        : this.config.acpEventLogPath;
     if (!filePath) return;
     try {
       await appendAcpEventLog(filePath, message);
     } catch (error) {
-      warn(`ACP event log failed: ${error instanceof Error ? error.message : String(error)}`);
+      warn(
+        `ACP event log failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }
@@ -837,26 +1041,39 @@ function statusCodeBlock(value: string): string {
     .join('\n');
 }
 
-function renderTechnicalStatus(thought: string, tool: string, logLine: string): string {
-  return [
-    thought,
-    tool,
-    logLine,
-  ]
-    .filter(Boolean)
-    .join('\n');
+function renderTechnicalStatus(
+  thought: string,
+  tool: string,
+  logLine: string,
+): string {
+  return [thought, tool, logLine].filter(Boolean).join('\n');
 }
 
 function sanitizeStatusText(value: string): string {
   const lines = value
     .replace(/\r\n/g, '\n')
     .split('\n')
-    .map((line) => line.replace(/^```[a-zA-Z0-9_-]*\s*$/, '').replace(/^```\s*$/, '').trim())
+    .map((line) =>
+      line
+        .replace(/^```[a-zA-Z0-9_-]*\s*$/, '')
+        .replace(/^```\s*$/, '')
+        .trim(),
+    )
     .filter(Boolean)
     .filter((line) => !line.startsWith('Warning: Basic terminal detected'))
-    .filter((line) => !line.startsWith('Warning: 256-color support not detected'))
-    .filter((line) => line !== 'Ripgrep is not available. Falling back to GrepTool.');
-  return lines.join('\n').trim() || value.replace(/```[a-zA-Z0-9_-]*/g, '').replace(/```/g, '').trim();
+    .filter(
+      (line) => !line.startsWith('Warning: 256-color support not detected'),
+    )
+    .filter(
+      (line) => line !== 'Ripgrep is not available. Falling back to GrepTool.',
+    );
+  return (
+    lines.join('\n').trim() ||
+    value
+      .replace(/```[a-zA-Z0-9_-]*/g, '')
+      .replace(/```/g, '')
+      .trim()
+  );
 }
 
 function stripTerminalNoise(value: string): string {
@@ -868,7 +1085,9 @@ function stripTerminalNoise(value: string): string {
 }
 
 function extractLatestStatusLine(value: string): string {
-  const compact = repairSentenceBoundarySpacing(normalizePromptText(sanitizeStatusText(value)));
+  const compact = repairSentenceBoundarySpacing(
+    normalizePromptText(sanitizeStatusText(value)),
+  );
   if (!compact) return '';
   const matches = compact.match(/[^.!?。！？]+[.!?。！？]+/g);
   const text = matches?.at(-1)?.trim() ?? compact;
@@ -885,7 +1104,9 @@ function errorMessage(error: unknown): string {
 }
 
 function shortSessionId(value: string): string {
-  return value.length <= 12 ? value : `${value.slice(0, 8)}...${value.slice(-4)}`;
+  return value.length <= 12
+    ? value
+    : `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
 function sessionKey(backendId: string, sessionId: string): string {
@@ -894,18 +1115,26 @@ function sessionKey(backendId: string, sessionId: string): string {
 
 function shortPath(value: string): string {
   const parts = value.split('/').filter(Boolean);
-  return parts.length ? parts.at(-1)! : value;
+  return parts.at(-1) ?? value;
 }
 
 function extractLiveOutput(update: JsonValue | undefined): string | null {
-  if (!isRecord(update) || update.sessionUpdate !== 'tool_call_update') return null;
+  if (!isRecord(update) || update.sessionUpdate !== 'tool_call_update')
+    return null;
   const contentText = extractContentText(update.content);
   if (contentText) return stripTerminalNoise(contentText);
   const rawOutput = update.rawOutput;
-  if (typeof rawOutput === 'string' && rawOutput.trim()) return stripTerminalNoise(rawOutput);
+  if (typeof rawOutput === 'string' && rawOutput.trim())
+    return stripTerminalNoise(rawOutput);
   if (!isRecord(rawOutput)) return null;
-  const output = rawOutput.formatted_output ?? rawOutput.aggregated_output ?? rawOutput.stdout ?? rawOutput.stderr;
-  return typeof output === 'string' && output.trim() ? stripTerminalNoise(output) : null;
+  const output =
+    rawOutput.formatted_output ??
+    rawOutput.aggregated_output ??
+    rawOutput.stdout ??
+    rawOutput.stderr;
+  return typeof output === 'string' && output.trim()
+    ? stripTerminalNoise(output)
+    : null;
 }
 
 function extractContentText(content: JsonValue | undefined): string | null {
@@ -914,7 +1143,8 @@ function extractContentText(content: JsonValue | undefined): string | null {
   for (const item of content) {
     if (!isRecord(item) || !isRecord(item.content)) continue;
     const inner = item.content;
-    if (inner.type === 'text' && typeof inner.text === 'string') chunks.push(inner.text);
+    if (inner.type === 'text' && typeof inner.text === 'string')
+      chunks.push(inner.text);
   }
   const text = chunks.join('\n').trim();
   return text || null;
