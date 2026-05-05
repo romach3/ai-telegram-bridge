@@ -7,13 +7,13 @@
 
 [English](README.md) | [Русская версия](README.ru.md)
 
-Control an ACP agent from Telegram.
+Run your coding agent from Telegram.
 
-`ai-telegram-bridge` connects a Telegram bot to an ACP backend. You send a
-message in Telegram, the bridge forwards it to the active ACP session, and the
-answer comes back into the same chat. Permission prompts become Telegram
-buttons, progress is shown as an editable status message, and `/cancel` stops
-the current turn.
+`ai-telegram-bridge` turns Telegram into a remote interface for your coding
+agent. Send tasks from your phone, watch the live progress message update, reply
+to the agent's questions, and approve or deny tool permissions with buttons.
+The agent keeps working in your workspace while Telegram becomes the control
+panel.
 
 Codex ACP works out of the box if `codex-acp` is available, but the bridge is
 not Codex-specific. Any stdio ACP backend can be configured.
