@@ -100,9 +100,12 @@ only when adding meaningful runtime or Telegram API tests.
 - Use ACP as the primary backend transport. Do not fall back to PTY scraping or
   CLI resume commands for normal operation.
 - Only process Telegram updates from `allowedUserId`.
+- Treat private chat with that allowed user as the only supported control
+  surface; group/supergroup updates must not execute bridge commands.
 - Keep exactly one active prompt turn per Telegram chat.
 - Route ACP permission requests to Telegram inline buttons and answer the same
   backend/request id that emitted them.
+- Permission callbacks must be one-shot and bound to the original chat/message.
 - Keep final user-facing answers separate from transient technical status.
 - Do not restart the service for docs-only changes.
 

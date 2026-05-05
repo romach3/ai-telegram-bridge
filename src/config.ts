@@ -46,6 +46,13 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
       'Missing AI_TELEGRAM_ALLOWED_USER_ID or bot.json allowedUserId',
     );
   }
+  validateConfig({
+    defaultBackend,
+    backends,
+    pollTimeoutSeconds: Number(fileConfig.pollTimeoutSeconds ?? 25),
+    flushIntervalMs: Number(fileConfig.flushIntervalMs ?? 1200),
+    liveEditIntervalMs: Number(fileConfig.liveEditIntervalMs ?? 2500),
+  });
 
   return {
     botToken,
@@ -71,6 +78,14 @@ export async function getAcpConfig(): Promise<AcpConfig> {
     process.env.AI_TELEGRAM_ACP_COMMAND ??
     fileConfig.defaultAcpCommand ??
     DEFAULT_ACP_COMMAND;
+  const backends = normalizeBackends(fileConfig.backends, defaultAcpCommand);
+  validateConfig({
+    defaultBackend:
+      process.env.AI_TELEGRAM_DEFAULT_BACKEND ??
+      fileConfig.defaultBackend ??
+      DEFAULT_BACKEND,
+    backends,
+  });
   return {
     defaultCwd:
       process.env.AI_TELEGRAM_DEFAULT_CWD ??
@@ -80,7 +95,7 @@ export async function getAcpConfig(): Promise<AcpConfig> {
       process.env.AI_TELEGRAM_DEFAULT_BACKEND ??
       fileConfig.defaultBackend ??
       DEFAULT_BACKEND,
-    backends: normalizeBackends(fileConfig.backends, defaultAcpCommand),
+    backends,
   };
 }
 
@@ -97,4 +112,44 @@ function normalizeBackends(
       args: [],
     },
   };
+}
+
+function validateConfig(input: {
+  defaultBackend: string;
+  backends: Record<string, BridgeBackendConfig>;
+  pollTimeoutSeconds?: number;
+  flushIntervalMs?: number;
+  liveEditIntervalMs?: number;
+}): void {
+  if (!Object.keys(input.backends).length) {
+    throw new Error('At least one backend must be configured');
+  }
+  if (!input.backends[input.defaultBackend]) {
+    throw new Error(
+      `Default backend is not configured: ${input.defaultBackend}`,
+    );
+  }
+  for (const [backendId, backend] of Object.entries(input.backends)) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(backendId)) {
+      throw new Error(`Invalid backend id: ${backendId}`);
+    }
+    if (backend.type !== 'stdio-acp') {
+      throw new Error(
+        `Unsupported backend type for ${backendId}: ${backend.type}`,
+      );
+    }
+    if (!backend.command?.trim()) {
+      throw new Error(`Missing command for backend: ${backendId}`);
+    }
+  }
+  for (const [name, value] of [
+    ['pollTimeoutSeconds', input.pollTimeoutSeconds],
+    ['flushIntervalMs', input.flushIntervalMs],
+    ['liveEditIntervalMs', input.liveEditIntervalMs],
+  ] as const) {
+    if (value === undefined) continue;
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`Invalid ${name}: ${value}`);
+    }
+  }
 }

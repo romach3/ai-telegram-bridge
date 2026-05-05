@@ -71,6 +71,10 @@ export async function writePermissions(
   await writeJsonAtomic(permissionsPath(), permissions);
 }
 
+export async function clearPermissions(): Promise<void> {
+  await writePermissions([]);
+}
+
 export async function savePermission(
   permission: PendingPermission,
 ): Promise<void> {
@@ -96,4 +100,29 @@ export async function takePermission(
   const [permission] = permissions.splice(index, 1);
   await writePermissions(permissions);
   return permission;
+}
+
+export async function getPermission(
+  id: number | string,
+): Promise<PendingPermission | undefined> {
+  const permissions = await readPermissions();
+  return permissions.find(
+    (item) => item.callbackKey === String(id) || String(item.id) === String(id),
+  );
+}
+
+export async function markInterruptedSessionsFailed(): Promise<void> {
+  const sessions = await readSessions();
+  let changed = false;
+  const next = sessions.map((session) => {
+    if (session.status !== 'running' && session.status !== 'waiting_permission')
+      return session;
+    changed = true;
+    return {
+      ...session,
+      status: 'failed' as const,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  if (changed) await writeSessions(next);
 }

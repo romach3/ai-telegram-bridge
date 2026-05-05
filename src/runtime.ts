@@ -15,6 +15,9 @@ import {
 } from './backend/acp/events';
 import { createBackends } from './backend/registry';
 import {
+  clearPermissions,
+  getPermission,
+  markInterruptedSessionsFailed,
   readSessions,
   requireSessionByChat,
   savePermission,
@@ -79,8 +82,10 @@ export class BridgeRuntime {
 
   async start(): Promise<void> {
     const backend = this.defaultBackend();
+    await this.resetInterruptedState();
     await this.ensureBackendInitialized(backend);
     await this.registerTelegramCommands();
+    await this.warnIfWebhookConfigured();
     this.bot.onText((message) => this.handleTextEvent(message));
     this.bot.onCallback((callback) => this.handleCallbackEvent(callback));
     this.bot.onError((error) =>
@@ -122,7 +127,7 @@ export class BridgeRuntime {
   }
 
   private async handleMessage(message: BridgeTextMessage): Promise<void> {
-    if (message.userId !== this.config.allowedUserId) return;
+    if (!isAuthorizedTelegramInput(message, this.config.allowedUserId)) return;
 
     const chatId = message.chatId;
     const text = message.text.trim();
@@ -436,7 +441,10 @@ export class BridgeRuntime {
   }
 
   private async handleCallback(callback: BridgeCallback): Promise<void> {
-    if (callback.userId !== this.config.allowedUserId) return;
+    if (!isAuthorizedTelegramInput(callback, this.config.allowedUserId)) {
+      await this.answerCallbackBestEffort(callback, 'Unauthorized user.');
+      return;
+    }
     const data = callback.data ?? '';
     if (data.startsWith('resume:')) {
       await this.handleResumeCallback(callback, data);
@@ -444,7 +452,7 @@ export class BridgeRuntime {
     }
     if (!data.startsWith('perm:')) return;
     const [, callbackKey, optionIndex] = data.split(':');
-    const permission = await takePermission(callbackKey);
+    const permission = await getPermission(callbackKey);
     if (!permission) {
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
@@ -452,11 +460,40 @@ export class BridgeRuntime {
       });
       return;
     }
+    if (!isPermissionCallbackContext(callback, permission)) {
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Permission context mismatch.',
+      });
+      return;
+    }
+    if (isExpiredPermission(permission)) {
+      await takePermission(callbackKey);
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Permission request expired.',
+      });
+      if (permission.messageId) {
+        await this.bot.deleteMessage({
+          chatId: permission.chatId,
+          messageId: permission.messageId,
+        });
+      }
+      return;
+    }
     const option = permission.options[Number(optionIndex)];
     if (!option) {
       await this.bot.answerCallbackQuery({
         callbackQueryId: callback.id,
         text: 'Permission option not found.',
+      });
+      return;
+    }
+    const consumed = await takePermission(callbackKey);
+    if (!consumed) {
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: 'Permission request already handled.',
       });
       return;
     }
@@ -1015,6 +1052,73 @@ export class BridgeRuntime {
       );
     }
   }
+
+  private async resetInterruptedState(): Promise<void> {
+    await clearPermissions();
+    await markInterruptedSessionsFailed();
+  }
+
+  private async warnIfWebhookConfigured(): Promise<void> {
+    try {
+      const info = await this.bot.getWebhookInfo();
+      if (!info.url) return;
+      warn(
+        [
+          'Telegram webhook is configured for this bot token.',
+          'Polling bridge instances compete with webhooks or other consumers.',
+          'Use one bot token for one bridge instance, or rotate/create a token.',
+        ].join(' '),
+      );
+    } catch (error) {
+      warn(`Telegram webhook diagnostic failed: ${errorMessage(error)}`);
+    }
+  }
+
+  private async answerCallbackBestEffort(
+    callback: BridgeCallback,
+    text: string,
+  ): Promise<void> {
+    try {
+      await this.bot.answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text,
+      });
+    } catch {
+      // Unauthorized or stale callbacks must never affect bridge execution.
+    }
+  }
+}
+
+export function isAuthorizedTelegramInput(
+  input: { userId: number; chatId?: number; chatType?: string },
+  allowedUserId: number,
+): boolean {
+  if (input.userId !== allowedUserId) return false;
+  if (input.chatType && input.chatType !== 'private') return false;
+  if (input.chatId !== undefined && input.chatId !== allowedUserId)
+    return false;
+  return true;
+}
+
+export function isPermissionCallbackContext(
+  callback: BridgeCallback,
+  permission: { chatId: number; messageId?: number },
+): boolean {
+  if (callback.chatId !== permission.chatId) return false;
+  if (
+    permission.messageId !== undefined &&
+    callback.messageId !== permission.messageId
+  )
+    return false;
+  return true;
+}
+
+const PERMISSION_TTL_MS = 15 * 60 * 1000;
+
+export function isExpiredPermission(input: { createdAt: string }): boolean {
+  const createdAt = Date.parse(input.createdAt);
+  if (!Number.isFinite(createdAt)) return true;
+  return Date.now() - createdAt > PERMISSION_TTL_MS;
 }
 
 function normalizePromptText(value: string): string {

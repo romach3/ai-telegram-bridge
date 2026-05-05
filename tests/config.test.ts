@@ -94,6 +94,82 @@ describe('config loading', () => {
     );
   });
 
+  it('rejects a default backend that is not configured', async () => {
+    await fs.writeFile(
+      configPath,
+      JSON.stringify({
+        botToken: 'token',
+        allowedUserId: 7,
+        defaultBackend: 'missing',
+        backends: {
+          codex: {
+            type: 'stdio-acp',
+            command: 'codex-acp',
+          },
+        },
+      }),
+    );
+
+    await expect(getBridgeConfig()).rejects.toThrow(
+      'Default backend is not configured: missing',
+    );
+  });
+
+  it('rejects invalid backend ids and empty commands', async () => {
+    await fs.writeFile(
+      configPath,
+      JSON.stringify({
+        botToken: 'token',
+        allowedUserId: 7,
+        defaultBackend: 'bad id',
+        backends: {
+          'bad id': {
+            type: 'stdio-acp',
+            command: 'codex-acp',
+          },
+        },
+      }),
+    );
+
+    await expect(getBridgeConfig()).rejects.toThrow(
+      'Invalid backend id: bad id',
+    );
+
+    await fs.writeFile(
+      configPath,
+      JSON.stringify({
+        botToken: 'token',
+        allowedUserId: 7,
+        defaultBackend: 'codex',
+        backends: {
+          codex: {
+            type: 'stdio-acp',
+            command: '',
+          },
+        },
+      }),
+    );
+
+    await expect(getBridgeConfig()).rejects.toThrow(
+      'Missing command for backend: codex',
+    );
+  });
+
+  it('rejects invalid timing values', async () => {
+    await fs.writeFile(
+      configPath,
+      JSON.stringify({
+        botToken: 'token',
+        allowedUserId: 7,
+        pollTimeoutSeconds: 0,
+      }),
+    );
+
+    await expect(getBridgeConfig()).rejects.toThrow(
+      'Invalid pollTimeoutSeconds: 0',
+    );
+  });
+
   it('returns ACP-only config without bot credentials', async () => {
     process.env.AI_TELEGRAM_DEFAULT_CWD = '/repo';
     await expect(getAcpConfig()).resolves.toMatchObject({

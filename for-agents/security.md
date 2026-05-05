@@ -24,12 +24,43 @@ Relevant env vars:
 
 ## Access Control
 
-`runtime.ts` ignores Telegram messages unless `message.from.id` equals
-`allowedUserId`. Preserve this check before adding new command paths.
+The bridge assumes one trusted Telegram user and one private chat. Preserve
+these invariants before adding new command paths:
 
-Inline permission callbacks are stored with callback ids in
-`state.ts`. When a callback is accepted, runtime must answer the same
-backend and ACP request id.
+- Every Telegram message, slash command, resume action, cancel action, and
+  prompt must be ignored unless `from.id === allowedUserId`.
+- Private chat is the supported control surface. Group/supergroup/channel
+  updates must not start prompts, commands, resumes, or permission decisions.
+- Inline permission callbacks must be checked against `allowedUserId`, the
+  original chat id, and the original permission message id before sending any
+  ACP response.
+- Permission callbacks are one-shot. After approve/deny/expiry they must not be
+  replayable.
+- Startup clears pending permission callbacks and marks interrupted running
+  sessions as failed, because a restarted bridge cannot prove that old buttons
+  still map to a live ACP request.
+
+Inline permission callbacks are stored with callback ids in `state.ts`. When a
+callback is accepted, runtime must answer the same backend and ACP request id
+that emitted the permission request.
+
+## Bot Token Ownership
+
+`allowedUserId` protects this bridge instance. It does not protect the Telegram
+bot token itself.
+
+One bot token should be used by one bridge instance. If another machine runs the
+same token with a different `allowedUserId`, it will not execute commands on
+this machine, but it can compete for `getUpdates` polling and make messages
+appear to disappear. For another user, create another Telegram bot/token.
+
+Troubleshooting symptom: if the bot sometimes does not respond and local logs
+do not show the update, check for another polling consumer or a configured
+webhook with BotFather/Telegram `getWebhookInfo`. Rotate the token if ownership
+is unclear.
+
+The runtime warns when `getWebhookInfo` reports an active webhook because
+polling bridge instances and webhooks are mutually conflicting consumers.
 
 ## Runtime Files
 

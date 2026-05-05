@@ -20,3 +20,8 @@ export interface BridgeConfig {
   liveEditIntervalMs: number;
   acpEventLogPath?: string;
 }
+
+export interface TelegramWebhookInfo {
+  url: string;
+  pendingUpdateCount?: number;
+}

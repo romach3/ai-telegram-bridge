@@ -128,6 +128,8 @@ Do not restart just because docs or non-runtime files changed.
 - ACP method mapping: `src/backend/acp/stdio-backend.ts`.
 - ACP update parsing: `src/backend/acp/events.ts`.
 - Backend config defaults: `src/config.ts`.
+- Telegram access-control and permission callback invariants:
+  `src/runtime.ts` and `for-agents/security.md`.
 
 ## Git Hygiene
 

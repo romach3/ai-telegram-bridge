@@ -148,6 +148,13 @@ The bridge talks to ACP backends over newline-delimited JSON-RPC on stdio. The
 idea is close to using an ACP agent from an editor such as Zed, except Telegram
 is the UI.
 
+## Security
+
+Treat the bridge as remote access to your local coding agent. Use your own
+Telegram bot token, keep it private, and run one bridge instance per bot token.
+If you want another user to run the bridge, create another Telegram bot for
+them. Detailed security notes live in `for-agents/security.md`.
+
 ## Developer Notes
 
 This is an AI-first project: day-to-day installation and maintenance are meant

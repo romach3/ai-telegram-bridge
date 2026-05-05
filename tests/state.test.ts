@@ -3,7 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  clearPermissions,
+  getPermission,
   getSessionByChat,
+  markInterruptedSessionsFailed,
   readPermissions,
   readSessions,
   requireSessionByChat,
@@ -71,6 +74,16 @@ describe('state persistence', () => {
     await expect(readPermissions()).resolves.toEqual([]);
   });
 
+  it('reads and clears pending permissions without consuming them first', async () => {
+    await savePermission(permission({ id: 1, callbackKey: 'abc' }));
+
+    await expect(getPermission('abc')).resolves.toMatchObject({ id: 1 });
+    await expect(readPermissions()).resolves.toHaveLength(1);
+
+    await clearPermissions();
+    await expect(readPermissions()).resolves.toEqual([]);
+  });
+
   it('replaces existing permission with the same callback key', async () => {
     await savePermission(permission({ id: 1, callbackKey: 'same', chatId: 1 }));
     await savePermission(permission({ id: 2, callbackKey: 'same', chatId: 2 }));
@@ -78,6 +91,29 @@ describe('state persistence', () => {
     await expect(readPermissions()).resolves.toEqual([
       expect.objectContaining({ id: 2, chatId: 2 }),
     ]);
+  });
+
+  it('marks interrupted sessions failed on startup', async () => {
+    await upsertSession(session({ acpSessionId: 'idle', status: 'idle' }));
+    await upsertSession(
+      session({ acpSessionId: 'running', status: 'running' }),
+    );
+    await upsertSession(
+      session({
+        acpSessionId: 'waiting',
+        status: 'waiting_permission',
+      }),
+    );
+
+    await markInterruptedSessionsFailed();
+
+    await expect(readSessions()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ acpSessionId: 'idle', status: 'idle' }),
+        expect.objectContaining({ acpSessionId: 'running', status: 'failed' }),
+        expect.objectContaining({ acpSessionId: 'waiting', status: 'failed' }),
+      ]),
+    );
   });
 });
 

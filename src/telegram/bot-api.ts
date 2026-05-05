@@ -9,6 +9,7 @@ import type {
   EditMessageTextInput,
   SendChatActionInput,
   SendMessageInput,
+  TelegramWebhookInfo,
 } from '../types';
 
 export class TelegramBotApi {
@@ -23,6 +24,7 @@ export class TelegramBotApi {
       if (!ctx.from) return;
       await handler({
         chatId: ctx.chat.id,
+        chatType: ctx.chat.type,
         userId: ctx.from.id,
         text: ctx.message.text,
       });
@@ -37,6 +39,7 @@ export class TelegramBotApi {
         userId: ctx.callbackQuery.from.id,
         data: ctx.callbackQuery.data,
         chatId: message?.chat.id,
+        chatType: message?.chat.type,
         messageId: message?.message_id,
       });
     });
@@ -57,6 +60,14 @@ export class TelegramBotApi {
 
   async setMyCommands(commands: BotCommand[]): Promise<void> {
     await this.bot.api.setMyCommands(commands);
+  }
+
+  async getWebhookInfo(): Promise<TelegramWebhookInfo> {
+    const info = await this.bot.api.getWebhookInfo();
+    return {
+      url: info.url ?? '',
+      pendingUpdateCount: info.pending_update_count,
+    };
   }
 
   async sendMessage(input: SendMessageInput): Promise<number | undefined> {

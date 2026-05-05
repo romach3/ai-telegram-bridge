@@ -147,6 +147,14 @@ image, mount binary или запуск через Node на host.
 Bridge общается с ACP backends через newline-delimited JSON-RPC по stdio. Идея
 похожа на работу ACP-агента в редакторе вроде Zed, только UI здесь Telegram.
 
+## Безопасность
+
+Считайте bridge удалённым доступом к вашему локальному coding agent. Используйте
+свой Telegram bot token, не передавайте его другим и запускайте один bridge
+instance на один bot token. Если bridge нужен другому пользователю, создайте
+для него отдельного Telegram-бота. Подробные security notes лежат в
+`for-agents/security.md`.
+
 ## Для Разработчиков
 
 Это AI-first проект: установку и повседневное сопровождение предполагается

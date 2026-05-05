@@ -6,6 +6,7 @@ export interface BridgeTextMessage {
   chatId: number;
   userId: number;
   text: string;
+  chatType?: string;
 }
 
 export interface BridgeCallback {
@@ -14,6 +15,7 @@ export interface BridgeCallback {
   data?: string;
   chatId?: number;
   messageId?: number;
+  chatType?: string;
 }
 
 export interface SendMessageInput {
