@@ -53,6 +53,17 @@ node dist/cli.js --help
 Coverage thresholds are a deliberately honest all-files baseline; raise them
 only when adding meaningful runtime or Telegram API tests.
 
+## Documentation Rules
+
+- `README.md` and `README.ru.md` are multilingual user entrypoints. Keep them
+  structurally consistent and update both files in the same change.
+- Keep README concise: explain what the bridge is, how an agent installs it,
+  and how to run it manually.
+- Put implementation details, verification rules, testing policy, and extension
+  guidance in `AGENTS.md` or `for-agents/`, not in README.
+- If CI, supported runtime, or public project status changes, update the README
+  badges in both languages.
+
 ## Architecture Map
 
 - `src/cli.ts` - CLI argument parsing and command entrypoints.

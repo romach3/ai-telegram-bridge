@@ -1,5 +1,10 @@
 # ai-telegram-bridge
 
+[![CI](https://github.com/romach3/ai-telegram-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/romach3/ai-telegram-bridge/actions/workflows/ci.yml)
+![Node](https://img.shields.io/badge/node-22%2B-339933)
+![ACP](https://img.shields.io/badge/backend-ACP-4b5563)
+![Telegram](https://img.shields.io/badge/ui-Telegram-2AABEE)
+
 [English](README.md) | [Русская версия](README.ru.md)
 
 Control an ACP agent from Telegram.
@@ -145,6 +150,10 @@ is the UI.
 
 ## Developer Notes
 
-`AGENTS.md` and `for-agents/` are written for coding agents and maintainers.
-They explain the runtime boundaries, file ownership, extension points, and
-change rules.
+This is an AI-first project: day-to-day installation and maintenance are meant
+to be delegated to a coding agent.
+
+`AGENTS.md` and `for-agents/` are written for those agents and maintainers. They
+explain the runtime boundaries, file ownership, extension points, verification
+commands, and change rules. Keep `README.md` and `README.ru.md` synchronized
+when changing user-facing documentation.

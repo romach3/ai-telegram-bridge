@@ -59,12 +59,26 @@ node dist/cli.js --help
 deliberately honest all-files baseline; raise them only with meaningful runtime
 or Telegram API tests.
 
+Docs-only changes do not need a local build unless they change scripts,
+generated artifacts, CI config, package metadata, or developer commands.
+
 Useful publish checks:
 
 ```bash
 rg -n "botToken|allowedUserId|AAG|bot.json|data/" . --glob '!node_modules/**' --glob '!dist/**'
 npm pack --dry-run
 ```
+
+## README Maintenance
+
+`README.md` and `README.ru.md` are a paired multilingual surface. Keep their
+section order, badges, commands, and public claims consistent. The English and
+Russian text does not need to be word-for-word identical, but the behavior,
+requirements, and install/run instructions must match.
+
+Do not move test policy, coverage details, or internal architecture notes into
+README. Keep those in `AGENTS.md` and `for-agents/` so another coding agent can
+maintain the project without making the human-facing README noisy.
 
 ## Live Service
 
