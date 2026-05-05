@@ -1,0 +1,6 @@
+bot.json
+.env
+data/*
+!data/.gitkeep
+dist/
+node_modules/

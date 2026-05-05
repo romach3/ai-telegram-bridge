@@ -1,0 +1,17 @@
+{
+  "botToken": "0000000000:replace-me",
+  "allowedUserId": 123456789,
+  "defaultCwd": "/path/to/workspace",
+  "defaultBackend": "codex",
+  "backends": {
+    "codex": {
+      "type": "stdio-acp",
+      "label": "Codex",
+      "command": "codex-acp",
+      "args": []
+    }
+  },
+  "pollTimeoutSeconds": 25,
+  "flushIntervalMs": 1200,
+  "liveEditIntervalMs": 2500
+}
