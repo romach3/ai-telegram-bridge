@@ -11,25 +11,25 @@ one configured ACP backend through a Telegram bot.
 
 End state:
 
-- dependencies are installed through either Node or Docker
-- local config exists without committing secrets
-- the Telegram bot token and allowed user id are configured
-- at least one ACP backend command is configured and verified
-- the bridge can start
-- optional autostart/autorestart is configured only after explicit approval
-- the user knows how to update, inspect logs, and stop the service
+- Node.js 22+ and npm are available on the host.
+- Local config exists without committing secrets.
+- The Telegram bot token and allowed user id are configured.
+- At least one ACP backend command is configured and verified on the host.
+- The bridge can start.
+- Optional autostart/autorestart is configured only after explicit approval.
+- The user knows how to update, inspect logs, and stop the service.
 
 ## Non-Negotiable Safety Rules
 
 - Do not commit secrets.
 - Do not print the full Telegram bot token back to the user after receiving it.
 - Do not write secrets to tracked files.
-- Do not overwrite an existing `bot.json`, `.env`, systemd unit, or compose
-  deployment without showing the current path and asking first.
-- Do not install Node, Docker, system packages, global npm packages, or service
-  units without explicit confirmation.
+- Do not overwrite an existing `bot.json` or systemd unit without showing the
+  current path and asking first.
+- Do not install Node, system packages, global npm packages, or service units
+  without explicit confirmation.
 - Do not assume `codex-acp`, Gemini ACP, Claude, or any backend command exists.
-  Verify the selected backend command with the user's chosen install mode.
+  Verify the selected backend command on the host.
 - Do not start a long-running service until config and backend command checks
   have passed.
 
@@ -37,19 +37,15 @@ End state:
 
 Ask these questions before making changes:
 
-1. Install mode:
-   - Node on host
-   - Docker Compose
-2. Backend command:
+1. Backend command:
    - default `codex-acp`
    - another ACP command
-3. Workspace path:
+2. Workspace path:
    - path the backend should use as its default working directory
-4. Autostart:
+3. Autostart:
    - no autostart
    - systemd user service
-   - Docker Compose restart policy
-5. Credentials:
+4. Credentials:
    - Telegram bot token
    - allowed Telegram user id
 
@@ -71,23 +67,22 @@ command -v node || true
 node --version || true
 command -v npm || true
 npm --version || true
-command -v docker || true
-docker --version || true
-docker compose version || true
 command -v systemctl || true
 systemctl --user status >/dev/null 2>&1; echo $?
 ```
 
 Interpretation:
 
-- Node mode needs Node 22+ and npm.
-- Docker mode needs Docker Engine and Docker Compose v2.
+- The bridge requires Node.js 22+ and npm on the host.
+- Local ACP CLIs such as Codex, Gemini, or Claude generally require host Node.js
+  too, so Docker is not a supported install path for this package.
 - systemd autostart needs a working `systemctl --user`.
 
-If required tooling is missing, ask before installing it. Use the host's package
-manager. Do not guess the package manager when uncertain; inspect the OS first.
+If Node.js or npm is missing or too old, ask before installing it. Use the
+host's package manager or the user's preferred Node manager. Do not guess the
+package manager when uncertain; inspect the OS first.
 
-## Config Files
+## Config File
 
 Package directory:
 
@@ -98,7 +93,6 @@ Package directory:
 Ignored local config files:
 
 - `bot.json`
-- `.env`
 - `data/*`
 
 If `bot.json` does not exist:
@@ -107,14 +101,8 @@ If `bot.json` does not exist:
 cp bot.example.json bot.json
 ```
 
-If Docker mode and `.env` does not exist:
-
-```bash
-cp .env.example .env
-```
-
-Edit config with a real JSON or dotenv writer when possible. If manual editing
-is required, preserve JSON syntax and do not echo secrets into chat.
+Edit config with a real JSON writer when possible. If manual editing is
+required, preserve JSON syntax and do not echo secrets into chat.
 
 Recommended `bot.json` shape:
 
@@ -138,23 +126,9 @@ Recommended `bot.json` shape:
 }
 ```
 
-For Docker mode, `.env` should contain:
+## Install And Verify
 
-```dotenv
-AI_TELEGRAM_BOT_TOKEN=<telegram-bot-token>
-AI_TELEGRAM_ALLOWED_USER_ID=123456789
-AI_TELEGRAM_DEFAULT_CWD=/workspace
-AI_TELEGRAM_ACP_COMMAND=codex-acp
-AI_TELEGRAM_DEFAULT_BACKEND=codex
-AI_TELEGRAM_WORKSPACE=/absolute/host/workspace/path
-```
-
-`bot.json` can still define richer backend config. The compose file mounts it
-read-only into the container.
-
-## Node Install Path
-
-Use this when the user chooses host Node:
+Install dependencies and build:
 
 ```bash
 npm ci
@@ -183,35 +157,11 @@ node dist/cli.js serve
 
 Stop the foreground process after confirming the bot responds.
 
-## Docker Install Path
-
-Use this when the user chooses Docker Compose:
-
-```bash
-docker compose config
-docker compose up -d --build
-docker compose logs -f ai-telegram-bridge
-```
-
-If `docker compose config` fails because required env vars are missing, finish
-`.env` first.
-
-Verify backend command inside the container. For the default compose image,
-only Node bridge runtime is guaranteed. If `<backend-command>` is not available
-inside the container, stop and present options:
-
-- build a custom image that installs the backend command
-- mount a backend binary into the container
-- use Node host mode instead
-- configure a backend command that exists in the container
-
-Do not pretend a host CLI is available inside Docker.
-
-## Autostart Options
+## Autostart
 
 Ask before configuring autostart.
 
-### systemd user service for Node mode
+### systemd user service
 
 Use only when `systemctl --user` works.
 
@@ -251,45 +201,29 @@ systemctl --user status ai-telegram-bridge.service --no-pager
 journalctl --user -u ai-telegram-bridge.service -f
 ```
 
-### Docker Compose autostart
-
-The tracked compose service uses:
-
-```yaml
-restart: unless-stopped
-```
-
-Start it with:
-
-```bash
-docker compose up -d --build
-```
-
-The host still needs Docker itself to start at boot. If Docker is not enabled,
-ask before enabling it with the host's service manager.
-
 ## Validation Checklist
 
 Before saying install is complete:
 
-- `bot.json` or `.env` exists and is ignored by git
-- `git status --short` does not show secrets staged or tracked
-- backend command was verified in the selected runtime environment
-- bridge process starts without config errors
-- Telegram bot responds to `/help` or `/status`
-- logs are visible through the chosen runtime
-- update command was given to the user
+- `bot.json` exists and is ignored by git.
+- `git status --short` does not show secrets staged or tracked.
+- Node.js 22+ and npm were verified on the host.
+- Backend command was verified on the host.
+- Bridge process starts without config errors.
+- Telegram bot responds to `/help` or `/status`.
+- Logs are visible through the chosen runtime.
+- Update command was given to the user.
 
 Useful checks:
 
 ```bash
 git status --short
-rg -n "AAG|botToken|allowedUserId|AI_TELEGRAM_BOT_TOKEN" . --glob '!node_modules/**' --glob '!dist/**' --glob '!bot.json' --glob '!.env'
+rg -n "AAG|botToken|allowedUserId|AI_TELEGRAM_BOT_TOKEN" . --glob '!node_modules/**' --glob '!dist/**' --glob '!bot.json'
 ```
 
 ## Update Commands
 
-Node mode:
+With systemd:
 
 ```bash
 git pull
@@ -301,18 +235,10 @@ systemctl --user restart ai-telegram-bridge.service
 If no systemd service is configured, restart the foreground or process-manager
 command the user chose.
 
-Docker mode:
-
-```bash
-git pull
-docker compose up -d --build
-```
-
 ## Final Report Template
 
 Finish with:
 
-- install mode used
 - config path used
 - backend id and command configured
 - runtime status

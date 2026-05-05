@@ -145,4 +145,4 @@ Use these files for deeper implementation context:
 ## Git Hygiene
 
 Stage only files that belong to this package. Never stage ignored local runtime
-state such as `bot.json`, `.env`, `data/`, `dist/`, or `node_modules/`.
+state such as `bot.json`, `data/`, `dist/`, or `node_modules/`.

@@ -12,35 +12,6 @@ npm install
 Local config can come from environment variables or ignored `bot.json`.
 `bot.example.json` is the tracked template.
 
-## Docker Setup
-
-The tracked Docker surface is:
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `.dockerignore`
-- `.env.example`
-
-The compose workflow is:
-
-```bash
-cp .env.example .env
-cp bot.example.json bot.json
-docker compose up -d --build
-```
-
-Update workflow:
-
-```bash
-git pull
-docker compose up -d --build
-```
-
-Keep `data/` in the named `bridge-data` volume. Do not bake local `bot.json`,
-runtime `data/`, or host-specific ACP CLI binaries into the default image.
-If a backend command must run in Docker, document how that command becomes
-available inside the container.
-
 ## Verification
 
 Run these after code changes:
@@ -138,4 +109,4 @@ Do not restart just because docs or non-runtime files changed.
 ## Git Hygiene
 
 Stage only files that belong to this package. Never stage ignored local runtime
-state such as `bot.json`, `.env`, `data/`, `dist/`, or `node_modules/`.
+state such as `bot.json`, `data/`, `dist/`, or `node_modules/`.

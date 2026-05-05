@@ -27,9 +27,9 @@ runbook:
 for-agents/install.md
 ```
 
-Runbook объясняет агенту, как спросить credentials, выбрать Node или Docker,
-проверить ACP backend command, записать локальный config и при желании настроить
-автозапуск. Это интерактивный сценарий, не shell script.
+Runbook объясняет агенту, как проверить или установить Node.js, спросить
+credentials, проверить ACP backend command, записать локальный config и при
+желании настроить автозапуск. Это интерактивный сценарий, не shell script.
 
 Codex:
 
@@ -89,7 +89,7 @@ cp bot.example.json bot.json
 }
 ```
 
-## Запуск Через Node
+## Запуск
 
 ```bash
 npm install
@@ -102,31 +102,6 @@ Production-style запуск:
 npm run build
 npm start -- serve
 ```
-
-## Запуск Через Docker
-
-Docker удобен, если не хочется ставить Node на host:
-
-```bash
-cp .env.example .env
-cp bot.example.json bot.json
-docker compose up -d --build
-```
-
-После обновления репозитория:
-
-```bash
-git pull
-docker compose up -d --build
-```
-
-Runtime state хранится в Docker volume `bridge-data`. Compose монтирует
-`bot.json` read-only и монтирует `AI_TELEGRAM_WORKSPACE` в `/workspace`.
-
-Важный момент: Docker image содержит сам bridge, но не все возможные ACP
-backends. Если backend command — `codex-acp`, `gemini-acp` или что-то своё,
-эта команда тоже должна существовать внутри контейнера. Для этого нужен custom
-image, mount binary или запуск через Node на host.
 
 ## Telegram Команды
 

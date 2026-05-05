@@ -27,9 +27,9 @@ runbook:
 for-agents/install.md
 ```
 
-The runbook tells the agent how to ask for credentials, choose Node or Docker,
-check the ACP backend command, write local config, and optionally set up
-autostart. It is meant to be interactive.
+The runbook tells the agent how to check or install Node.js, ask for
+credentials, check the ACP backend command, write local config, and optionally
+set up autostart. It is meant to be interactive.
 
 Codex:
 
@@ -89,7 +89,7 @@ Example backend config:
 }
 ```
 
-## Run With Node
+## Run
 
 ```bash
 npm install
@@ -102,31 +102,6 @@ Production-style run:
 npm run build
 npm start -- serve
 ```
-
-## Run With Docker
-
-Docker is useful when you do not want to install Node on the host:
-
-```bash
-cp .env.example .env
-cp bot.example.json bot.json
-docker compose up -d --build
-```
-
-After updating the repo:
-
-```bash
-git pull
-docker compose up -d --build
-```
-
-Runtime state lives in the `bridge-data` Docker volume. The compose file mounts
-`bot.json` read-only and mounts `AI_TELEGRAM_WORKSPACE` at `/workspace`.
-
-One important detail: the Docker image contains the bridge, not every possible
-ACP backend. If your backend command is `codex-acp`, `gemini-acp`, or something
-custom, that command must exist inside the container too. Use a custom image,
-mount a binary, or use host Node mode.
 
 ## Telegram Commands
 
