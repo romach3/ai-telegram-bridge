@@ -7,6 +7,10 @@ export function renderTelegramMarkdownChunks(markdown: string): string[] {
   return splitTelegramText(renderTelegramMarkdown(markdown));
 }
 
+export function renderTelegramPlainChunks(text: string): string[] {
+  return splitTelegramText(text);
+}
+
 export async function sendTelegramChunks(
   bot: TelegramBotApi,
   chatId: number,
@@ -17,6 +21,24 @@ export async function sendTelegramChunks(
     const messageId = await bot.sendMessage({ chatId, text: chunk });
     log(
       `sent telegram chunk ${index + 1}/${chunks.length} messageId=${messageId ?? 'unknown'} chars=${chunk.length}`,
+    );
+  }
+}
+
+export async function sendTelegramPlainChunks(
+  bot: TelegramBotApi,
+  chatId: number,
+  text: string,
+): Promise<void> {
+  const chunks = renderTelegramPlainChunks(text);
+  for (const [index, chunk] of chunks.entries()) {
+    const messageId = await bot.sendMessage({
+      chatId,
+      text: chunk,
+      parseMode: 'none',
+    });
+    log(
+      `sent telegram plain chunk ${index + 1}/${chunks.length} messageId=${messageId ?? 'unknown'} chars=${chunk.length}`,
     );
   }
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   renderTelegramMarkdownChunks,
+  renderTelegramPlainChunks,
   sendTelegramChunks,
+  sendTelegramPlainChunks,
 } from '../src/telegram/messages';
 
 describe('Telegram message helpers', () => {
@@ -27,5 +29,22 @@ describe('Telegram message helpers', () => {
       expect(call[0]).toMatchObject({ chatId: 123 });
       expect(call[0].text.length).toBeLessThanOrEqual(3900);
     }
+  });
+
+  it('renders and sends plain chunks without MarkdownV2 parse mode', async () => {
+    const text = 'plain text with dots. underscores_and [brackets].';
+    expect(renderTelegramPlainChunks(text)).toEqual([text]);
+
+    const bot = {
+      sendMessage: vi.fn().mockResolvedValue(11),
+    };
+
+    await sendTelegramPlainChunks(bot, 123, text);
+
+    expect(bot.sendMessage).toHaveBeenCalledWith({
+      chatId: 123,
+      text,
+      parseMode: 'none',
+    });
   });
 });

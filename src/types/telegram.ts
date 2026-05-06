@@ -21,6 +21,7 @@ export interface TelegramCallbackDto {
 export interface SendMessageInput {
   chatId: number;
   text: string;
+  parseMode?: 'MarkdownV2' | 'none';
   replyMarkup?: InlineKeyboardMarkup;
 }
 
@@ -28,6 +29,7 @@ export interface EditMessageTextInput {
   chatId: number;
   messageId: number;
   text: string;
+  parseMode?: 'MarkdownV2' | 'none';
 }
 
 export interface DeleteMessageInput {

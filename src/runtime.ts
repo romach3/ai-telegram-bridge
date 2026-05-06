@@ -28,6 +28,7 @@ import { codeBlock, inlineCode, plainText } from './telegram/markdown';
 import {
   renderTelegramMarkdownChunks,
   sendTelegramChunks,
+  sendTelegramPlainChunks,
 } from './telegram/messages';
 import {
   labelFromPrompt,
@@ -909,8 +910,17 @@ export class BridgeRuntime {
         await sendTelegramChunks(this.bot, chatId, answer);
       }
     } catch (error) {
-      warn(`Telegram final answer send failed: ${errorMessage(error)}`);
-      return;
+      warn(
+        `Telegram final answer MarkdownV2 send failed, retrying as plain text: ${errorMessage(error)}`,
+      );
+      try {
+        await sendTelegramPlainChunks(this.bot, chatId, answer);
+      } catch (plainError) {
+        warn(
+          `Telegram final answer plain send failed: ${errorMessage(plainError)}`,
+        );
+        return;
+      }
     }
     log('final answer sent');
   }

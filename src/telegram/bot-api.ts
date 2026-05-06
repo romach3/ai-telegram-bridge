@@ -72,7 +72,7 @@ export class TelegramBotApi {
 
   async sendMessage(input: SendMessageInput): Promise<number | undefined> {
     const message = await this.bot.api.sendMessage(input.chatId, input.text, {
-      parse_mode: 'MarkdownV2',
+      parse_mode: input.parseMode === 'none' ? undefined : 'MarkdownV2',
       link_preview_options: { is_disabled: true },
       reply_markup: input.replyMarkup,
     });
@@ -86,7 +86,7 @@ export class TelegramBotApi {
         input.messageId,
         input.text,
         {
-          parse_mode: 'MarkdownV2',
+          parse_mode: input.parseMode === 'none' ? undefined : 'MarkdownV2',
           link_preview_options: { is_disabled: true },
         },
       );
