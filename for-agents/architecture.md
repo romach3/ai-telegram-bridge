@@ -21,7 +21,8 @@ layers unless they protect a real boundary.
    constructs `BridgeRuntime`.
 4. `BridgeRuntime.start()` initializes the default agent, registers Telegram
    bot commands, then lets `grammy Bot` own long polling.
-5. Telegram text commands are handled inside `src/runtime/bridge-runtime.ts`.
+5. Telegram text commands are handled inside
+   `src/runtime/handlers/telegram-messages.ts`.
 6. Regular Telegram text is sent to the active agent as `session/prompt`.
    Private chat uses one scope; each configured group topic uses its own scope.
 7. ACP updates are parsed by `src/acp/events.ts` and rendered by runtime.
@@ -36,17 +37,67 @@ run a minimal ACP session without Telegram.
   - Keep it thin; do not put behavior here.
 
 - `src/runtime/bridge-runtime.ts`
-  - Owns chat command handling: `/new`, `/resume`, `/compact`, `/cancel`,
-    `/status`, `/agents`, `/help`.
-  - Owns per-scope active-turn flags, message buffers, live technical status,
-    permission request rendering, and callback handling.
+  - Owns composition and startup wiring: bot, ACP agents, runtime services,
+    Telegram listeners, ACP update listeners, command registration, webhook
+    diagnostic, and ACP event logging.
+  - Keep this file thin. It should delegate Telegram messages, Telegram
+    callbacks, ACP updates, and prompt execution to focused runtime modules.
   - Should not contain raw Telegram HTTP calls or child-process JSON-RPC.
 
-- `src/runtime/authorization.ts`, `permissions.ts`, `sessions.ts`, `text.ts`,
-  `acp-routing.ts`, `types.ts`
+- `src/runtime/handlers/telegram-messages.ts`
+  - Owns Telegram text command routing: `/new`, `/resume`, `/compact`,
+    `/cancel`, `/status`, `/agents`, `/help`, unknown command handling, and
+    handing regular prompts to `PromptRunner`.
+
+- `src/runtime/handlers/telegram-callbacks.ts`
+  - Owns inline callback routing for new-session and resume-session buttons.
+  - Delegates permission decisions to `permission-callbacks.ts`.
+
+- `src/runtime/handlers/permission-callbacks.ts`
+  - Owns approval/denial callback decisions for pending ACP permission
+    requests, including expired-request safe denial.
+
+- `src/runtime/handlers/acp-updates.ts`
+  - Owns ACP `session/update` and `session/request_permission` notifications,
+    including text chunk classification, tool status/log rendering, and
+    permission request message creation.
+
+- `src/runtime/services/agent-service.ts`
+  - Owns ACP agent lookup, initialization, session creation, and session loading.
+
+- `src/runtime/services/session-service.ts`
+  - Owns bridge session creation, session normalization, prompt label setup,
+    and active `TurnContext` reset/prepare mechanics.
+
+- `src/runtime/services/prompt-runner.ts`
+  - Owns sending user prompts to ACP, final answer delivery, stop-reason
+    handling, and success/failure session status updates.
+
+- `src/runtime/services/permission-wait-service.ts`
+  - Owns stale `waiting_permission` recovery and pending-permission lookup.
+
+- `src/runtime/rendering/live-turn.ts`
+  - Owns typing refresh, transient technical status messages, replacing
+    technical status with the final answer, and Markdown-to-plain fallback for
+    final answer delivery.
+
+- `src/runtime/state/turn-context-registry.ts`
+  - Owns per-scope `TurnContext` instances and ACP session-to-scope routing.
+  - Keep ambiguous update fallback here so group topics and parallel turns stay
+    consistent.
+
+- `src/runtime/policy/authorization.ts`, `permissions.ts`, `sessions.ts`,
+  `acp-routing.ts`
   - Runtime-owned helper modules.
-  - Keep pure policy/formatting helpers here when they are specific to bridge
-    runtime behavior and not generic enough for `utils/`.
+  - Keep policy helpers here when they are specific to bridge runtime behavior
+    and not generic enough for `utils/`.
+
+- `src/runtime/rendering/text.ts`
+  - Runtime-owned technical text cleanup and extraction helpers.
+
+- `src/runtime/types.ts`
+  - Runtime-local structural types such as `ConversationScope`, `TurnContext`,
+    and `ResumeMenu`.
 
 - `src/state.ts`
   - Owns `data/sessions.json` and `data/pending-permissions.json`.
@@ -90,10 +141,11 @@ ACP updates arrive as JSON-RPC notifications. Runtime splits them into:
 - permission requests
 - session ids and usage/no-op updates
 
-Transient thought/tool/log content is rendered as a technical live message.
-Once final answer text is ready, final answer rendering replaces the transient
-flow. Preserve this behavior when changing message formatting; otherwise the bot
-will either spam Telegram or hide the actual answer.
+Transient thought/tool/log content is rendered by
+`src/runtime/rendering/live-turn.ts` as a technical live message. Once final
+answer text is ready, final answer rendering replaces the transient flow.
+Preserve this behavior when changing message formatting; otherwise the bot will
+either spam Telegram or hide the actual answer.
 
 ## Persistence Model
 

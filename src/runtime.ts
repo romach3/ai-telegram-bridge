@@ -1,18 +1,18 @@
-export { sessionKey } from './runtime/acp-routing';
+export { BridgeRuntime, serveBridge } from './runtime/bridge-runtime';
+export { sessionKey } from './runtime/policy/acp-routing';
 export {
   authorizedScope,
   isAuthorizedTelegramInput,
   isPermissionCallbackContext,
   scopeFromTelegramInput,
-} from './runtime/authorization';
-export { BridgeRuntime, serveBridge } from './runtime/bridge-runtime';
+} from './runtime/policy/authorization';
 export {
   findSafeDenialOption,
   formatPermissionOptionLabel,
   formatPermissionRequestText,
   isExpiredPermission,
-} from './runtime/permissions';
-export { normalizeSessions } from './runtime/sessions';
+} from './runtime/policy/permissions';
+export { normalizeSessions } from './runtime/policy/sessions';
 export type {
   ConversationScope,
   ResumeMenu,

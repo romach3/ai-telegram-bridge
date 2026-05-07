@@ -1,4 +1,4 @@
-import type { BridgeSessionDto } from '../types';
+import type { BridgeSessionDto } from '../../types';
 
 export function normalizeSessions(
   sessions: BridgeSessionDto[],

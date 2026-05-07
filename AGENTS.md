@@ -69,12 +69,17 @@ only when adding meaningful runtime or Telegram API tests.
 - `src/cli.ts` - CLI argument parsing and command entrypoints.
 - `src/config.ts` - env var and `bot.json` config loading.
 - `src/runtime.ts` - public runtime facade and helper re-exports.
-- `src/runtime/bridge-runtime.ts` - main bridge loop, Telegram command routing,
-  active-turn state, permission callbacks, live status rendering, and ACP
-  dispatch.
-- `src/runtime/*.ts` - runtime-owned pure helpers for authorization,
-  permissions, session normalization, technical text rendering, and ACP
-  routing.
+- `src/runtime/bridge-runtime.ts` - main bridge composition, startup,
+  Telegram listener wiring, ACP event-log wiring, and service diagnostics.
+- `src/runtime/handlers/` - Telegram message commands, Telegram callback
+  decisions, permission callbacks, and ACP update handling.
+- `src/runtime/services/` - agent lifecycle, session lifecycle, prompt running,
+  and stale permission-wait recovery.
+- `src/runtime/policy/` - runtime policy helpers for authorization,
+  permission formatting, session normalization, and ACP routing.
+- `src/runtime/rendering/` - live turn rendering and technical text formatting.
+- `src/runtime/state/` - in-memory turn-context routing.
+- `src/runtime/types.ts` - runtime-local structural types.
 - `src/state.ts` - persisted bridge sessions and pending permissions.
 - `src/acp/stdio-agent.ts` - agent setup.
 - `src/acp/` - built-in stdio ACP agent, JSON-RPC client, ACP event
@@ -109,7 +114,9 @@ and tests in the same change.
   - Telegram behavior in `src/telegram/`.
   - ACP behavior in `src/acp/`.
   - Agent selection in `src/acp/stdio-agent.ts`.
-  - Bridge orchestration in `src/runtime/bridge-runtime.ts`.
+  - Bridge composition in `src/runtime/bridge-runtime.ts`.
+  - Runtime command/callback/update behavior in `src/runtime/handlers/`.
+  - Runtime lifecycle mechanics in `src/runtime/services/`.
   - Bridge session/permission persistence in `src/state.ts`.
   - Generic helpers in `src/utils/`.
 - Add or update `src/types/` contracts before threading loose objects across
@@ -147,9 +154,10 @@ and tests in the same change.
 
 ## Change Workflow
 
-- Start from the owning runtime surface: Telegram behavior in
-`src/telegram/`, ACP behavior in `src/acp/`, orchestration in
-  `src/runtime/bridge-runtime.ts`.
+- Start from the owning runtime surface: Telegram transport in
+  `src/telegram/`, ACP transport/parsing in `src/acp/`, bridge composition in
+  `src/runtime/bridge-runtime.ts`, and runtime behavior in
+  `src/runtime/handlers/` or `src/runtime/services/`.
 - Keep changes narrow and test the behavior at the closest layer first.
 - For Telegram UX changes, prefer deterministic formatting/message tests before
   live service checks.

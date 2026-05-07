@@ -1,6 +1,6 @@
-import { isRecord } from '../acp/events';
-import { inlineCode } from '../telegram/markdown';
-import type { JsonValue } from '../types';
+import { isRecord } from '../../acp/events';
+import { inlineCode } from '../../telegram/markdown';
+import type { JsonValue } from '../../types';
 
 export function normalizePromptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();

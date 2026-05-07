@@ -1,6 +1,6 @@
-import { scopeIdForPrivateChat, scopeIdForTopic } from '../state';
-import type { BridgeConfig, TelegramCallbackDto } from '../types';
-import type { ConversationScope } from './types';
+import { scopeIdForPrivateChat, scopeIdForTopic } from '../../state';
+import type { BridgeConfig, TelegramCallbackDto } from '../../types';
+import type { ConversationScope } from '../types';
 
 export function isAuthorizedTelegramInput(
   input: {

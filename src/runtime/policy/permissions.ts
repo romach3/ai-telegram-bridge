@@ -1,6 +1,6 @@
-import { isRecord } from '../acp/events';
-import { codeBlock, inlineCode, plainText } from '../telegram/markdown';
-import type { JsonValue } from '../types';
+import { isRecord } from '../../acp/events';
+import { codeBlock, inlineCode, plainText } from '../../telegram/markdown';
+import type { JsonValue } from '../../types';
 
 const PERMISSION_TTL_MS = 15 * 60 * 1000;
 

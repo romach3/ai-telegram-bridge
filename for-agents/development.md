@@ -77,6 +77,12 @@ Do not restart just because docs or non-runtime files changed.
   unless there is a concrete multi-file boundary and a clear owner.
 - If only bridge runtime calls a helper and it is bridge-specific, keep it in
   `src/runtime/` or `state.ts`.
+- Runtime handlers live in `src/runtime/handlers/` when they own an external
+  event stream: Telegram messages, Telegram callbacks, permission callbacks, or
+  ACP updates.
+- Runtime services live in `src/runtime/services/` when they own reusable
+  lifecycle mechanics shared by handlers: agents, sessions, prompt execution,
+  or stale permission waits.
 - If a helper is pure and generic, put it in `utils/`.
 - If a helper mentions Telegram concepts, put it in `telegram/`.
 - If a helper mentions ACP protocol concepts, put it in `acp/`.
@@ -93,9 +99,11 @@ Do not restart just because docs or non-runtime files changed.
   polling/routing and converts Telegram middleware context into bridge DTOs.
 - Telegram event shape changes: `src/types/telegram.ts`. Runtime should receive
   bridge DTOs, not raw `grammy` updates.
-- Technical status rendering or command behavior:
-  `src/runtime/bridge-runtime.ts` plus the focused helper modules in
-  `src/runtime/`.
+- Technical status rendering: `src/runtime/rendering/live-turn.ts`.
+- Telegram command behavior: `src/runtime/handlers/telegram-messages.ts`.
+- Telegram callback behavior: `src/runtime/handlers/telegram-callbacks.ts` and
+  `src/runtime/handlers/permission-callbacks.ts`.
+- ACP update behavior: `src/runtime/handlers/acp-updates.ts`.
 - Visible command definitions: `src/telegram/commands.ts`. Keep hidden
   recovery/debug commands out of the Telegram command menu and `/help`.
 - Session labels: `src/telegram/session-labels.ts`. The first non-command prompt names a
@@ -106,7 +114,8 @@ Do not restart just because docs or non-runtime files changed.
 - ACP update parsing: `src/acp/events.ts`.
 - Agent config defaults: `src/config.ts`.
 - Telegram access-control and permission callback invariants:
-  `src/runtime/authorization.ts`, `src/runtime/permissions.ts`, and
+  `src/runtime/policy/authorization.ts`,
+  `src/runtime/policy/permissions.ts`, and
   `for-agents/security.md`.
 
 ## Git Hygiene
