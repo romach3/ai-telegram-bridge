@@ -27,6 +27,7 @@ export class TelegramBotApi {
         chatType: ctx.chat.type,
         userId: ctx.from.id,
         text: ctx.message.text,
+        messageThreadId: ctx.message.message_thread_id,
       });
     });
   }
@@ -41,6 +42,7 @@ export class TelegramBotApi {
         chatId: message?.chat.id,
         chatType: message?.chat.type,
         messageId: message?.message_id,
+        messageThreadId: message?.message_thread_id,
       });
     });
   }
@@ -75,6 +77,7 @@ export class TelegramBotApi {
       parse_mode: input.parseMode === 'none' ? undefined : 'MarkdownV2',
       link_preview_options: { is_disabled: true },
       reply_markup: input.replyMarkup,
+      message_thread_id: input.messageThreadId,
     });
     return message.message_id;
   }
@@ -105,7 +108,9 @@ export class TelegramBotApi {
   }
 
   async sendChatAction(input: SendChatActionInput): Promise<void> {
-    await this.bot.api.sendChatAction(input.chatId, input.action);
+    await this.bot.api.sendChatAction(input.chatId, input.action, {
+      message_thread_id: input.messageThreadId,
+    });
   }
 
   async answerCallbackQuery(input: AnswerCallbackQueryInput): Promise<void> {

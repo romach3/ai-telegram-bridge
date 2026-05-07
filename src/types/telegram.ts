@@ -7,6 +7,7 @@ export interface TelegramTextMessageDto {
   userId: number;
   text: string;
   chatType?: string;
+  messageThreadId?: number;
 }
 
 export interface TelegramCallbackDto {
@@ -16,10 +17,12 @@ export interface TelegramCallbackDto {
   chatId?: number;
   messageId?: number;
   chatType?: string;
+  messageThreadId?: number;
 }
 
 export interface SendMessageInput {
   chatId: number;
+  messageThreadId?: number;
   text: string;
   parseMode?: 'MarkdownV2' | 'none';
   replyMarkup?: InlineKeyboardMarkup;
@@ -27,6 +30,7 @@ export interface SendMessageInput {
 
 export interface EditMessageTextInput {
   chatId: number;
+  messageThreadId?: number;
   messageId: number;
   text: string;
   parseMode?: 'MarkdownV2' | 'none';
@@ -34,11 +38,13 @@ export interface EditMessageTextInput {
 
 export interface DeleteMessageInput {
   chatId: number;
+  messageThreadId?: number;
   messageId: number;
 }
 
 export interface SendChatActionInput {
   chatId: number;
+  messageThreadId?: number;
   action: 'typing';
 }
 

@@ -31,6 +31,22 @@ describe('Telegram message helpers', () => {
     }
   });
 
+  it('keeps Telegram topic id on chunked sends', async () => {
+    const bot = {
+      sendMessage: vi.fn().mockResolvedValue(10),
+    };
+
+    await sendTelegramChunks(bot, -100, 'topic answer', 77);
+
+    expect(bot.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: -100,
+        messageThreadId: 77,
+        text: expect.stringContaining('topic answer'),
+      }),
+    );
+  });
+
   it('renders and sends plain chunks without MarkdownV2 parse mode', async () => {
     const text = 'plain text with dots. underscores_and [brackets].';
     expect(renderTelegramPlainChunks(text)).toEqual([text]);
@@ -39,10 +55,11 @@ describe('Telegram message helpers', () => {
       sendMessage: vi.fn().mockResolvedValue(11),
     };
 
-    await sendTelegramPlainChunks(bot, 123, text);
+    await sendTelegramPlainChunks(bot, 123, text, 5);
 
     expect(bot.sendMessage).toHaveBeenCalledWith({
       chatId: 123,
+      messageThreadId: 5,
       text,
       parseMode: 'none',
     });

@@ -77,6 +77,12 @@ Example agent config:
 
 ```json
 {
+  "allowedChats": [
+    {
+      "chatId": -1001234567890,
+      "topics": "all"
+    }
+  ],
   "defaultAgent": "codex",
   "agents": {
     "codex": {
@@ -87,6 +93,11 @@ Example agent config:
   }
 }
 ```
+
+`allowedChats` is optional. Without it, the bridge only works in the private
+chat with `allowedUserId`. With it, the configured group can use Telegram forum
+topics: every topic is an independent work scope, and tasks in different topics
+can run at the same time.
 
 ## Run
 
@@ -104,9 +115,10 @@ npm start -- serve
 
 ## Telegram Commands
 
-- `/new` creates a new ACP session. If several agents are configured, it
-  shows agent buttons first.
-- `/resume` shows buttons for the last five resumable sessions.
+- `/new` creates a new ACP session for the current private chat or group topic.
+  If several agents are configured, it shows agent buttons first.
+- `/resume` shows buttons for all resumable sessions across all scopes;
+  choosing one makes it active in the current chat/topic.
 - `/compact` sends `/compact` to the active ACP session.
 - `/status` shows the current bridge/session state.
 - `/cancel` cancels the current turn.
@@ -116,6 +128,10 @@ Any normal text message is sent to the active ACP session as `session/prompt`.
 The first normal prompt in a new session becomes its human-readable title in
 `/resume`. `/agents` is a hidden debug command and is intentionally kept out of
 the Telegram command menu.
+
+In a configured Telegram group, messages must be sent inside forum topics. A new
+topic starts a new session automatically on the first normal prompt. Each topic
+has its own live status, permissions, cancellation, and active turn.
 
 ## Notes
 
@@ -128,9 +144,10 @@ is the UI.
 Treat the bridge as remote access to your local coding agent. Use your own
 Telegram bot token, keep it private, and run one bridge instance per bot token.
 If you want another user to run the bridge, create another Telegram bot for
-them. The control surface is a private chat with the configured Telegram user;
-group chats are intentionally unsupported. Detailed security notes live in
-`for-agents/security.md`.
+them. The default control surface is a private chat with the configured
+Telegram user. Group topics can be enabled only for explicit `allowedChats`, and
+commands are still accepted only from `allowedUserId`. Detailed security notes
+live in `for-agents/security.md`.
 
 ## Developer Notes
 

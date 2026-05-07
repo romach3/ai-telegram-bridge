@@ -15,10 +15,15 @@ export async function sendTelegramChunks(
   bot: TelegramBotApi,
   chatId: number,
   markdown: string,
+  messageThreadId?: number,
 ): Promise<void> {
   const chunks = renderTelegramMarkdownChunks(markdown);
   for (const [index, chunk] of chunks.entries()) {
-    const messageId = await bot.sendMessage({ chatId, text: chunk });
+    const messageId = await bot.sendMessage({
+      chatId,
+      messageThreadId,
+      text: chunk,
+    });
     log(
       `sent telegram chunk ${index + 1}/${chunks.length} messageId=${messageId ?? 'unknown'} chars=${chunk.length}`,
     );
@@ -29,11 +34,13 @@ export async function sendTelegramPlainChunks(
   bot: TelegramBotApi,
   chatId: number,
   text: string,
+  messageThreadId?: number,
 ): Promise<void> {
   const chunks = renderTelegramPlainChunks(text);
   for (const [index, chunk] of chunks.entries()) {
     const messageId = await bot.sendMessage({
       chatId,
+      messageThreadId,
       text: chunk,
       parseMode: 'none',
     });

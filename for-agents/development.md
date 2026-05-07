@@ -75,8 +75,8 @@ Do not restart just because docs or non-runtime files changed.
 - Do not create directories for one file.
 - Do not add `actions/`, `getters/`, `services/`, `storage/`, or `pipelines/`
   unless there is a concrete multi-file boundary and a clear owner.
-- If only `runtime.ts` calls a helper and it is bridge-specific, keep it in
-  `runtime.ts` or `state.ts`.
+- If only bridge runtime calls a helper and it is bridge-specific, keep it in
+  `src/runtime/` or `state.ts`.
 - If a helper is pure and generic, put it in `utils/`.
 - If a helper mentions Telegram concepts, put it in `telegram/`.
 - If a helper mentions ACP protocol concepts, put it in `acp/`.
@@ -93,7 +93,9 @@ Do not restart just because docs or non-runtime files changed.
   polling/routing and converts Telegram middleware context into bridge DTOs.
 - Telegram event shape changes: `src/types/telegram.ts`. Runtime should receive
   bridge DTOs, not raw `grammy` updates.
-- Technical status rendering or command behavior: `src/runtime.ts`.
+- Technical status rendering or command behavior:
+  `src/runtime/bridge-runtime.ts` plus the focused helper modules in
+  `src/runtime/`.
 - Visible command definitions: `src/telegram/commands.ts`. Keep hidden
   recovery/debug commands out of the Telegram command menu and `/help`.
 - Session labels: `src/telegram/session-labels.ts`. The first non-command prompt names a
@@ -104,7 +106,8 @@ Do not restart just because docs or non-runtime files changed.
 - ACP update parsing: `src/acp/events.ts`.
 - Agent config defaults: `src/config.ts`.
 - Telegram access-control and permission callback invariants:
-  `src/runtime.ts` and `for-agents/security.md`.
+  `src/runtime/authorization.ts`, `src/runtime/permissions.ts`, and
+  `for-agents/security.md`.
 
 ## Git Hygiene
 

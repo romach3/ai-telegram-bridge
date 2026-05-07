@@ -68,8 +68,13 @@ only when adding meaningful runtime or Telegram API tests.
 
 - `src/cli.ts` - CLI argument parsing and command entrypoints.
 - `src/config.ts` - env var and `bot.json` config loading.
-- `src/runtime.ts` - main bridge loop, Telegram command routing, active-turn
-  state, permission callbacks, live status rendering, and ACP dispatch.
+- `src/runtime.ts` - public runtime facade and helper re-exports.
+- `src/runtime/bridge-runtime.ts` - main bridge loop, Telegram command routing,
+  active-turn state, permission callbacks, live status rendering, and ACP
+  dispatch.
+- `src/runtime/*.ts` - runtime-owned pure helpers for authorization,
+  permissions, session normalization, technical text rendering, and ACP
+  routing.
 - `src/state.ts` - persisted bridge sessions and pending permissions.
 - `src/acp/stdio-agent.ts` - agent setup.
 - `src/acp/` - built-in stdio ACP agent, JSON-RPC client, ACP event
@@ -104,7 +109,7 @@ and tests in the same change.
   - Telegram behavior in `src/telegram/`.
   - ACP behavior in `src/acp/`.
   - Agent selection in `src/acp/stdio-agent.ts`.
-  - Bridge orchestration in `src/runtime.ts`.
+  - Bridge orchestration in `src/runtime/bridge-runtime.ts`.
   - Bridge session/permission persistence in `src/state.ts`.
   - Generic helpers in `src/utils/`.
 - Add or update `src/types/` contracts before threading loose objects across
@@ -115,9 +120,13 @@ and tests in the same change.
 - Use ACP as the primary agent transport. Do not fall back to PTY scraping or
   CLI resume commands for normal operation.
 - Only process Telegram updates from `allowedUserId`.
-- Treat private chat with that allowed user as the only supported control
-  surface; group/supergroup updates must not execute bridge commands.
-- Keep exactly one active prompt turn per Telegram chat.
+- Treat private chat with that allowed user as supported by default.
+- Group/supergroup execution is allowed only for configured `allowedChats` and
+  only inside forum topics. The security boundary remains `allowedUserId`.
+- Use `scopeId` as the active-turn boundary: private chat is one scope, and
+  each configured group topic is a separate scope.
+- Allow parallel active prompt turns in different scopes. Keep exactly one
+  active prompt turn per scope.
 - Keep the visible Telegram command surface small: `/new`, `/resume`,
   `/status`, `/compact`, `/cancel`, and `/help`. `/agents` is the only hidden
   debug command.
@@ -125,20 +134,22 @@ and tests in the same change.
   `defaultCwd`; when multiple agents exist, choose agent via buttons.
 - The first normal prompt in a session becomes its `label`; slash commands such
   as `/compact` must not rename sessions.
-- `/resume` must hide sessions whose agent is no longer configured and prune
-  those invalid records from state. Legacy records without `agentId` may be
-  migrated to the configured default agent.
+- `/resume` must show recent valid sessions across all scopes. Choosing one
+  makes it active in the current scope. It must hide sessions whose agent is no
+  longer configured and prune those invalid records from state. Legacy records
+  without `agentId` may be migrated to the configured default agent.
 - Route ACP permission requests to Telegram inline buttons and answer the same
   agent/request id that emitted them.
-- Permission callbacks must be one-shot and bound to the original chat/message.
+- Permission callbacks must be one-shot and bound to the original
+  chat/topic/message.
 - Keep final user-facing answers separate from transient technical status.
 - Do not restart the service for docs-only changes.
 
 ## Change Workflow
 
 - Start from the owning runtime surface: Telegram behavior in
-  `src/telegram/`, ACP behavior in `src/acp/`, orchestration in
-  `src/runtime.ts`.
+`src/telegram/`, ACP behavior in `src/acp/`, orchestration in
+  `src/runtime/bridge-runtime.ts`.
 - Keep changes narrow and test the behavior at the closest layer first.
 - For Telegram UX changes, prefer deterministic formatting/message tests before
   live service checks.

@@ -51,16 +51,28 @@ export async function upsertSession(session: BridgeSessionDto): Promise<void> {
 export async function getSessionByChat(
   chatId: number,
 ): Promise<BridgeSessionDto | undefined> {
+  return getSessionByScope(scopeIdForPrivateChat(chatId));
+}
+
+export async function getSessionByScope(
+  scopeId: string,
+): Promise<BridgeSessionDto | undefined> {
   const sessions = await readSessions();
   return sessions
-    .filter((item) => item.chatId === chatId)
+    .filter((item) => sessionScopeId(item) === scopeId)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
 }
 
 export async function requireSessionByChat(
   chatId: number,
 ): Promise<BridgeSessionDto> {
-  const session = await getSessionByChat(chatId);
+  return requireSessionByScope(scopeIdForPrivateChat(chatId));
+}
+
+export async function requireSessionByScope(
+  scopeId: string,
+): Promise<BridgeSessionDto> {
+  const session = await getSessionByScope(scopeId);
   if (!session) {
     throw new Error('No active ACP session. Send /new first.');
   }
@@ -133,4 +145,23 @@ export async function markInterruptedSessionsFailed(): Promise<void> {
     };
   });
   if (changed) await writeSessions(next);
+}
+
+export function scopeIdForPrivateChat(chatId: number): string {
+  return `chat:${chatId}`;
+}
+
+export function scopeIdForTopic(
+  chatId: number,
+  messageThreadId: number,
+): string {
+  return `chat:${chatId}:topic:${messageThreadId}`;
+}
+
+export function sessionScopeId(session: BridgeSessionDto): string {
+  if (session.scopeId) return session.scopeId;
+  if (session.messageThreadId !== undefined) {
+    return scopeIdForTopic(session.chatId, session.messageThreadId);
+  }
+  return scopeIdForPrivateChat(session.chatId);
 }

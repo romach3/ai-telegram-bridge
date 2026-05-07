@@ -1,6 +1,4 @@
-import readline from 'node:readline';
-
-const rl = readline.createInterface({ input: process.stdin });
+setInterval(() => undefined, 1000);
 
 process.stderr.write('fake stderr\n');
 process.stdout.write('not json\n');
@@ -12,7 +10,21 @@ process.stdout.write(
   })}\n`,
 );
 
-rl.on('line', (line) => {
+let inputBuffer = '';
+
+process.stdin.on('data', (chunk) => {
+  inputBuffer += chunk.toString();
+  let newlineIndex = inputBuffer.indexOf('\n');
+  while (newlineIndex !== -1) {
+    const line = inputBuffer.slice(0, newlineIndex);
+    inputBuffer = inputBuffer.slice(newlineIndex + 1);
+    handleLine(line);
+    newlineIndex = inputBuffer.indexOf('\n');
+  }
+});
+process.stdin.resume();
+
+function handleLine(line) {
   const message = JSON.parse(line);
   if (message.method === 'fail') {
     process.stdout.write(
@@ -37,4 +49,4 @@ rl.on('line', (line) => {
       result,
     })}\n`,
   );
-});
+}

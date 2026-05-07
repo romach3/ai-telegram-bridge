@@ -23,18 +23,19 @@ Relevant env vars:
 
 ## Access Control
 
-The bridge assumes one trusted Telegram user and one private chat. Preserve
-these invariants before adding new command paths:
+The bridge assumes one trusted Telegram user. Preserve these invariants before
+adding new command paths:
 
 - Every Telegram message, slash command, resume action, cancel action, and
   prompt must be ignored unless `from.id === allowedUserId`.
-- Private chat is the supported control surface. Group/supergroup/channel
-  updates must not start prompts, commands, resumes, or permission decisions.
-  Group mode is unsupported by design; add an explicit `allowedChatId` style
-  contract before changing this.
+- Private chat is supported by default.
+- Group/supergroup execution is allowed only when the group `chatId` is present
+  in `allowedChats` and the message is inside a forum topic.
+- Channel updates and non-topic group messages must not start prompts,
+  commands, resumes, or permission decisions.
 - Inline permission callbacks must be checked against `allowedUserId`, the
-  original chat id, and the original permission message id before sending any
-  ACP response.
+  original chat id, original topic id, and the original permission message id
+  before sending any ACP response.
 - Permission callbacks are one-shot. After approve/deny/expiry they must not be
   replayable.
 - Expired permission callbacks should send a safe denial option to ACP when the

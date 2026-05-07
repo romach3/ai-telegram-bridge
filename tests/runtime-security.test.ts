@@ -20,28 +20,64 @@ describe('runtime security helpers', () => {
   });
 
   it('accepts only the allowed private Telegram user and chat', () => {
+    const config = { allowedUserId: 42, allowedChats: [] };
     expect(
       isAuthorizedTelegramInput(
         { userId: 42, chatId: 42, chatType: 'private' },
-        42,
+        config,
       ),
     ).toBe(true);
     expect(
       isAuthorizedTelegramInput(
         { userId: 7, chatId: 7, chatType: 'private' },
-        42,
+        config,
       ),
     ).toBe(false);
     expect(
       isAuthorizedTelegramInput(
         { userId: 42, chatId: -100, chatType: 'supergroup' },
-        42,
+        config,
       ),
     ).toBe(false);
     expect(
       isAuthorizedTelegramInput(
         { userId: 42, chatId: 100, chatType: 'private' },
-        42,
+        config,
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts configured group topics from the allowed user', () => {
+    const config = {
+      allowedUserId: 42,
+      allowedChats: [{ chatId: -100, topics: 'all' as const }],
+    };
+    expect(
+      isAuthorizedTelegramInput(
+        {
+          userId: 42,
+          chatId: -100,
+          chatType: 'supergroup',
+          messageThreadId: 10,
+        },
+        config,
+      ),
+    ).toBe(true);
+    expect(
+      isAuthorizedTelegramInput(
+        { userId: 42, chatId: -100, chatType: 'supergroup' },
+        config,
+      ),
+    ).toBe(false);
+    expect(
+      isAuthorizedTelegramInput(
+        {
+          userId: 42,
+          chatId: -101,
+          chatType: 'supergroup',
+          messageThreadId: 10,
+        },
+        config,
       ),
     ).toBe(false);
   });
@@ -63,6 +99,18 @@ describe('runtime security helpers', () => {
       isPermissionCallbackContext(
         { id: 'cb', userId: 42, chatId: 42, messageId: 11 },
         { chatId: 42, messageId: 10 },
+      ),
+    ).toBe(false);
+    expect(
+      isPermissionCallbackContext(
+        {
+          id: 'cb',
+          userId: 42,
+          chatId: -100,
+          messageId: 10,
+          messageThreadId: 2,
+        },
+        { chatId: -100, messageId: 10, messageThreadId: 1 },
       ),
     ).toBe(false);
   });

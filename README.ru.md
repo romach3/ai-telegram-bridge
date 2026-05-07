@@ -77,6 +77,12 @@ cp bot.example.json bot.json
 
 ```json
 {
+  "allowedChats": [
+    {
+      "chatId": -1001234567890,
+      "topics": "all"
+    }
+  ],
   "defaultAgent": "codex",
   "agents": {
     "codex": {
@@ -87,6 +93,11 @@ cp bot.example.json bot.json
   }
 }
 ```
+
+`allowedChats` опционален. Без него bridge работает только в private chat с
+`allowedUserId`. Если группа добавлена в `allowedChats`, можно использовать
+Telegram forum topics: каждый topic становится отдельной рабочей областью, а
+задачи в разных topics могут выполняться одновременно.
 
 ## Запуск
 
@@ -104,10 +115,10 @@ npm start -- serve
 
 ## Telegram Команды
 
-- `/new` создаёт новую ACP-сессию. Если настроено несколько agents, сначала
-  показывает кнопки выбора agent.
-- `/resume` показывает кнопки для последних пяти сессий, которые можно
-  восстановить.
+- `/new` создаёт новую ACP-сессию для текущего private chat или group topic.
+  Если настроено несколько agents, сначала показывает кнопки выбора agent.
+- `/resume` показывает кнопки для всех resumable-сессий из всех scopes; выбор
+  сессии делает её активной в текущем chat/topic.
 - `/compact` отправляет `/compact` в активную ACP-сессию.
 - `/status` показывает состояние bridge/session.
 - `/cancel` отменяет текущий ход.
@@ -117,6 +128,11 @@ npm start -- serve
 Первый обычный prompt в новой сессии становится её человеческим заголовком в
 `/resume`. `/agents` — скрытая debug-команда; она намеренно не попадает в
 Telegram command menu.
+
+В настроенной Telegram-группе сообщения должны отправляться внутри forum
+topics. Новый topic автоматически создаёт новую session на первом обычном
+prompt. У каждого topic свои live status, permissions, cancellation и active
+turn.
 
 ## Заметки
 
@@ -128,9 +144,10 @@ Bridge общается с ACP agents через newline-delimited JSON-RPC по
 Считайте bridge удалённым доступом к вашему локальному coding agent. Используйте
 свой Telegram bot token, не передавайте его другим и запускайте один bridge
 instance на один bot token. Если bridge нужен другому пользователю, создайте
-для него отдельного Telegram-бота. Управление поддерживается только в private
-chat с настроенным Telegram user; групповые чаты намеренно не поддерживаются.
-Подробные security notes лежат в `for-agents/security.md`.
+для него отдельного Telegram-бота. По умолчанию управление поддерживается в
+private chat с настроенным Telegram user. Group topics можно включить только
+для явных `allowedChats`, и команды всё равно принимаются только от
+`allowedUserId`. Подробные security notes лежат в `for-agents/security.md`.
 
 ## Для Разработчиков
 

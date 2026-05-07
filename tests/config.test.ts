@@ -40,6 +40,7 @@ describe('config loading', () => {
     await expect(getBridgeConfig()).resolves.toMatchObject({
       botToken: 'token',
       allowedUserId: 42,
+      allowedChats: [],
       defaultCwd: '/workspace',
       defaultAgent: 'codex',
       acpEventLogPath: '/tmp/events.jsonl',
@@ -57,6 +58,7 @@ describe('config loading', () => {
       JSON.stringify({
         botToken: 'file-token',
         allowedUserId: 7,
+        allowedChats: [{ chatId: -1001, topics: 'all' }],
         defaultCwd: '/repo',
         defaultAgent: 'other',
         agents: {
@@ -72,6 +74,7 @@ describe('config loading', () => {
     await expect(getBridgeConfig()).resolves.toMatchObject({
       botToken: 'file-token',
       allowedUserId: 7,
+      allowedChats: [{ chatId: -1001, topics: 'all' }],
       defaultAgent: 'other',
       agents: {
         other: {

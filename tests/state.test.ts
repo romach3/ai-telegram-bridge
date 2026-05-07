@@ -6,11 +6,15 @@ import {
   clearPermissions,
   getPermission,
   getSessionByChat,
+  getSessionByScope,
   markInterruptedSessionsFailed,
   readPermissions,
   readSessions,
   requireSessionByChat,
+  requireSessionByScope,
   savePermission,
+  scopeIdForPrivateChat,
+  scopeIdForTopic,
   takePermission,
   upsertSession,
 } from '../src/state';
@@ -55,10 +59,43 @@ describe('state persistence', () => {
     });
   });
 
+  it('keeps topic sessions isolated by scope', async () => {
+    await upsertSession(
+      session({
+        acpSessionId: 'topic-1',
+        chatId: -100,
+        messageThreadId: 1,
+        scopeId: scopeIdForTopic(-100, 1),
+      }),
+    );
+    await upsertSession(
+      session({
+        acpSessionId: 'topic-2',
+        chatId: -100,
+        messageThreadId: 2,
+        scopeId: scopeIdForTopic(-100, 2),
+      }),
+    );
+
+    await expect(
+      getSessionByScope(scopeIdForTopic(-100, 1)),
+    ).resolves.toMatchObject({
+      acpSessionId: 'topic-1',
+    });
+    await expect(
+      getSessionByScope(scopeIdForTopic(-100, 2)),
+    ).resolves.toMatchObject({
+      acpSessionId: 'topic-2',
+    });
+  });
+
   it('throws a clear error when a chat has no session', async () => {
     await expect(requireSessionByChat(404)).rejects.toThrow(
       'No active ACP session. Send /new first.',
     );
+    await expect(
+      requireSessionByScope(scopeIdForPrivateChat(404)),
+    ).rejects.toThrow('No active ACP session. Send /new first.');
   });
 
   it('saves and takes permissions by callback key or request id', async () => {

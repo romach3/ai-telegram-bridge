@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { AcpAgentConfig, BridgeConfig } from './types';
+import type { AcpAgentConfig, AllowedChatConfig, BridgeConfig } from './types';
 import { fileExists, readJson } from './utils/files';
 import { TOOL_DIR } from './utils/paths';
 
@@ -31,6 +31,7 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
     fileConfig.defaultAgent ??
     DEFAULT_AGENT;
   const agents = normalizeAgents(fileConfig.agents, acpCommand);
+  const allowedChats = normalizeAllowedChats(fileConfig.allowedChats);
 
   if (!botToken) {
     throw new Error('Missing AI_TELEGRAM_BOT_TOKEN or bot.json botToken');
@@ -51,6 +52,7 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
   return {
     botToken,
     allowedUserId,
+    allowedChats,
     defaultCwd,
     defaultAgent,
     agents,
@@ -60,6 +62,20 @@ export async function getBridgeConfig(): Promise<BridgeConfig> {
     acpEventLogPath:
       process.env.AI_TELEGRAM_ACP_EVENT_LOG ?? fileConfig.acpEventLogPath,
   };
+}
+
+function normalizeAllowedChats(value: unknown): AllowedChatConfig[] {
+  if (!Array.isArray(value)) return [];
+  const result: AllowedChatConfig[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const chatId = Number((item as { chatId?: unknown }).chatId);
+    const topics = (item as { topics?: unknown }).topics;
+    if (!Number.isInteger(chatId)) continue;
+    if (topics !== 'all') continue;
+    result.push({ chatId, topics });
+  }
+  return result;
 }
 
 export async function getAcpConfig(): Promise<AcpConfig> {

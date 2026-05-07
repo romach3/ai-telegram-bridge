@@ -110,6 +110,12 @@ Recommended `bot.json` shape:
 {
   "botToken": "<telegram-bot-token>",
   "allowedUserId": 123456789,
+  "allowedChats": [
+    {
+      "chatId": -1001234567890,
+      "topics": "all"
+    }
+  ],
   "defaultCwd": "/absolute/workspace/path",
   "defaultAgent": "codex",
   "agents": {

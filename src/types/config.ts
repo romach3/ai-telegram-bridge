@@ -5,9 +5,15 @@ export interface AcpAgentConfig {
   cwd?: string;
 }
 
+export interface AllowedChatConfig {
+  chatId: number;
+  topics: 'all';
+}
+
 export interface BridgeConfig {
   botToken: string;
   allowedUserId: number;
+  allowedChats: AllowedChatConfig[];
   defaultCwd: string;
   defaultAgent: string;
   agents: Record<string, AcpAgentConfig>;

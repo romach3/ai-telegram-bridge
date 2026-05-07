@@ -10,6 +10,8 @@ export type BridgeSessionStatusDto =
 export interface BridgeSessionDto {
   telegramUserId: number;
   chatId: number;
+  scopeId?: string;
+  messageThreadId?: number;
   agentId?: string;
   acpSessionId: string;
   cwd: string;
@@ -29,6 +31,8 @@ export interface PendingPermissionDto {
   id: AcpRequestId;
   callbackKey?: string;
   chatId: number;
+  scopeId?: string;
+  messageThreadId?: number;
   sessionId: string;
   agentId?: string;
   messageId?: number;
