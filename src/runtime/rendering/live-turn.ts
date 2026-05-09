@@ -14,8 +14,9 @@ import {
   statusCodeBlock,
 } from './text';
 
-const TECHNICAL_STATUS_FLUSH_MS = 350;
+const TECHNICAL_STATUS_FLUSH_MS = 2500;
 const TYPING_REFRESH_MS = 4000;
+const FINAL_ANSWER_RETRY_LIMIT = 2;
 
 export class LiveTurnRenderer {
   constructor(private readonly bot: TelegramBotApi) {}
@@ -104,6 +105,8 @@ export class LiveTurnRenderer {
       clearTimeout(context.toolStatusTimer);
       context.toolStatusTimer = undefined;
     }
+    context.toolStatusFlushInFlight = false;
+    context.toolStatusBlockedUntil = undefined;
     context.toolStatusMessageId = undefined;
     context.toolStatusText = '';
     context.toolStatusLastText = '';
@@ -135,12 +138,7 @@ export class LiveTurnRenderer {
         `Telegram final answer MarkdownV2 send failed, retrying as plain text: ${errorMessage(error)}`,
       );
       try {
-        await sendTelegramPlainChunks(
-          this.bot,
-          context.chatId,
-          answer,
-          context.messageThreadId,
-        );
+        await this.sendPlainFinalAnswerWithRetry(context, answer);
       } catch (plainError) {
         warn(
           `Telegram final answer plain send failed: ${errorMessage(plainError)}`,
@@ -157,14 +155,30 @@ export class LiveTurnRenderer {
       context.technicalToolText,
       context.technicalLogText,
     );
-    if (context.toolStatusTimer) return;
-    context.toolStatusTimer = setTimeout(() => {
-      context.toolStatusTimer = undefined;
-      void this.flushToolStatus(context);
-    }, TECHNICAL_STATUS_FLUSH_MS);
+    if (context.toolStatusTimer || context.toolStatusFlushInFlight) return;
+    const blockedDelay = Math.max(
+      0,
+      (context.toolStatusBlockedUntil ?? 0) - Date.now(),
+    );
+    context.toolStatusTimer = setTimeout(
+      () => {
+        context.toolStatusTimer = undefined;
+        void this.flushToolStatus(context);
+      },
+      Math.max(TECHNICAL_STATUS_FLUSH_MS, blockedDelay),
+    );
   }
 
   private async flushToolStatus(context: TurnContext): Promise<void> {
+    if (context.toolStatusFlushInFlight) return;
+    const blockedDelay = Math.max(
+      0,
+      (context.toolStatusBlockedUntil ?? 0) - Date.now(),
+    );
+    if (blockedDelay > 0) {
+      await this.scheduleTechnicalFlush(context);
+      return;
+    }
     context.toolStatusText = renderTechnicalStatus(
       context.technicalThoughtText,
       context.technicalToolText,
@@ -173,6 +187,7 @@ export class LiveTurnRenderer {
     if (!context.toolStatusText) return;
     const text = statusCodeBlock(context.toolStatusText);
     if (text === context.toolStatusLastText) return;
+    context.toolStatusFlushInFlight = true;
     if (!context.toolStatusMessageId) {
       try {
         context.toolStatusMessageId = await this.bot.sendMessage({
@@ -182,7 +197,10 @@ export class LiveTurnRenderer {
         });
         context.toolStatusLastText = text;
       } catch (error) {
+        this.applyTelegramRetryAfter(context, error);
         warn(`Telegram technical status send skipped: ${errorMessage(error)}`);
+      } finally {
+        context.toolStatusFlushInFlight = false;
       }
       return;
     }
@@ -195,7 +213,10 @@ export class LiveTurnRenderer {
       });
       context.toolStatusLastText = text;
     } catch (error) {
+      this.applyTelegramRetryAfter(context, error);
       warn(`Telegram technical status edit skipped: ${errorMessage(error)}`);
+    } finally {
+      context.toolStatusFlushInFlight = false;
     }
   }
 
@@ -225,20 +246,31 @@ export class LiveTurnRenderer {
         text: chunks[0],
       });
     } catch (error) {
-      warn(
-        `Telegram final answer edit failed, sending as new message: ${errorMessage(error)}`,
-      );
-      await sendTelegramChunks(
-        this.bot,
-        context.chatId,
-        markdown,
-        context.messageThreadId,
-      );
-      context.toolStatusMessageId = undefined;
-      context.toolStatusText = '';
-      context.toolStatusLastText = '';
-      this.resetTechnicalText(context);
-      return;
+      const retryAfter = telegramRetryAfterSeconds(error);
+      if (retryAfter !== null) {
+        await delay((retryAfter + 1) * 1000);
+        await this.bot.editMessageText({
+          chatId: context.chatId,
+          messageThreadId: context.messageThreadId,
+          messageId: context.toolStatusMessageId,
+          text: chunks[0],
+        });
+      } else {
+        warn(
+          `Telegram final answer edit failed, sending as new message: ${errorMessage(error)}`,
+        );
+        await sendTelegramChunks(
+          this.bot,
+          context.chatId,
+          markdown,
+          context.messageThreadId,
+        );
+        context.toolStatusMessageId = undefined;
+        context.toolStatusText = '';
+        context.toolStatusLastText = '';
+        this.resetTechnicalText(context);
+        return;
+      }
     }
     for (const chunk of chunks.slice(1)) {
       await this.bot.sendMessage({
@@ -252,4 +284,46 @@ export class LiveTurnRenderer {
     context.toolStatusLastText = '';
     this.resetTechnicalText(context);
   }
+
+  private async sendPlainFinalAnswerWithRetry(
+    context: TurnContext,
+    answer: string,
+  ): Promise<void> {
+    let attempt = 0;
+    while (true) {
+      try {
+        await sendTelegramPlainChunks(
+          this.bot,
+          context.chatId,
+          answer,
+          context.messageThreadId,
+        );
+        return;
+      } catch (error) {
+        const retryAfter = telegramRetryAfterSeconds(error);
+        if (retryAfter === null || attempt >= FINAL_ANSWER_RETRY_LIMIT)
+          throw error;
+        attempt += 1;
+        await delay((retryAfter + 1) * 1000);
+      }
+    }
+  }
+
+  private applyTelegramRetryAfter(context: TurnContext, error: unknown): void {
+    const retryAfter = telegramRetryAfterSeconds(error);
+    if (retryAfter === null) return;
+    context.toolStatusBlockedUntil = Date.now() + (retryAfter + 1) * 1000;
+  }
+}
+
+function telegramRetryAfterSeconds(error: unknown): number | null {
+  const message = errorMessage(error);
+  const match = message.match(/retry after (\d+)/i);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) ? seconds : null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

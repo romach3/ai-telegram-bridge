@@ -25,6 +25,8 @@ export type TurnContext = ConversationScope & {
   technicalToolText: string;
   technicalLogText: string;
   toolStatusTimer?: NodeJS.Timeout;
+  toolStatusFlushInFlight?: boolean;
+  toolStatusBlockedUntil?: number;
   toolStatusLastText: string;
 };
 
