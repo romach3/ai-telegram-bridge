@@ -91,7 +91,9 @@ export class BridgeRuntime {
       );
       agent.on('stderr', (value) => {
         const text = String(value).trim();
-        if (text) warn(`[${agent.id}] ${text}`);
+        if (!text) return;
+        this.agentService.recordStderr(agent.id, text);
+        warn(`[${agent.id}] ${text}`);
       });
     }
   }

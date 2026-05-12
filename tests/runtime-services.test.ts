@@ -58,6 +58,24 @@ describe('AgentRuntimeService', () => {
 
     expect(() => service.get('missing')).toThrow('Unknown ACP agent: missing');
   });
+
+  it('stores recent actionable stderr for diagnostics', () => {
+    const agent = fakeAgent();
+    const service = new AgentRuntimeService(
+      new Map([[agent.id, agent]]),
+      'codex',
+    );
+    const startedAt = Date.now();
+
+    service.recordStderr(
+      agent.id,
+      'ERROR codex_acp::thread: Selected model is at capacity. Please try a different model. Some(ServerOverloaded)',
+    );
+
+    expect(service.recentErrorHint(agent.id, startedAt)).toContain(
+      'Selected model is at capacity',
+    );
+  });
 });
 
 describe('SessionRuntimeService', () => {
@@ -176,6 +194,46 @@ describe('PromptRunner', () => {
       expect.objectContaining({
         chatId: 42,
         text: expect.stringContaining('ACP error: boom'),
+      }),
+    );
+  });
+
+  it('uses recent ACP stderr when an internal prompt error hides capacity details', async () => {
+    const bot = fakeBot();
+    const agent = fakeAgent({
+      prompt: vi.fn().mockRejectedValue(new Error('Internal error')),
+    });
+    const agents = new AgentRuntimeService(
+      new Map([[agent.id, agent]]),
+      'codex',
+    );
+    const live = fakeLive();
+    const sessions = new SessionRuntimeService(config(), agents, live);
+    const runner = new PromptRunner(
+      bot,
+      live,
+      agents,
+      sessions,
+      new PermissionWaitService(agents, sessions),
+      new TurnContextRegistry(),
+    );
+    agents.recordStderr(
+      agent.id,
+      '2026-05-12T07:26:24Z ERROR codex_acp::thread: Unhandled error during turn: Selected model is at capacity. Please try a different model. Some(ServerOverloaded)',
+    );
+
+    await runner.run(
+      turnContext({ sawToolEvent: true }),
+      bridgeSession({ status: 'running' }),
+      'fail',
+    );
+
+    expect(bot.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 42,
+        text: expect.stringContaining(
+          'ACP error: Selected model is at capacity',
+        ),
       }),
     );
   });

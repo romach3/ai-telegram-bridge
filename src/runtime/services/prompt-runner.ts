@@ -64,6 +64,7 @@ export class PromptRunner {
     text: string,
   ): Promise<void> {
     const agent = this.agents.forSession(session);
+    const startedAt = Date.now();
     try {
       const result = await agent.prompt({
         sessionId: session.acpSessionId,
@@ -94,16 +95,43 @@ export class PromptRunner {
       });
       if (context.toolStatusMessageId)
         await this.live.finishToolStatus(context, 'Failed.');
+      const message = this.formatAcpError(agent.id, error, startedAt, context);
       await this.bot.sendMessage({
         chatId: context.chatId,
         messageThreadId: context.messageThreadId,
-        text: plainText(
-          `ACP error: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        text: plainText(`ACP error: ${message}`),
       });
     } finally {
       this.contexts.unbindAcpSession(agent.id, session.acpSessionId);
       this.sessions.resetActivePromptState(context);
     }
   }
+
+  private formatAcpError(
+    agentId: string,
+    error: unknown,
+    startedAt: number,
+    context: TurnContext,
+  ): string {
+    const message = error instanceof Error ? error.message : String(error);
+    const hint = this.agents.recentErrorHint(agentId, startedAt);
+    if (!hint) return message;
+    const normalizedHint = normalizeAcpStderr(hint);
+    if (/^internal error$/i.test(message)) return normalizedHint;
+    if (
+      !context.buffer.trim() &&
+      /ServerOverloaded|capacity|overloaded/i.test(hint)
+    ) {
+      return normalizedHint;
+    }
+    return `${message}. ${normalizedHint}`;
+  }
+}
+
+function normalizeAcpStderr(text: string): string {
+  const capacityMatch = text.match(
+    /Selected model is at capacity\. Please try a different model\./i,
+  );
+  if (capacityMatch) return capacityMatch[0];
+  return text.replace(/^\S+\s+ERROR\s+[^:]+:\s*/i, '').trim();
 }

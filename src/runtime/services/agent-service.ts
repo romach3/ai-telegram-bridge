@@ -4,6 +4,10 @@ import { sessionKey } from '../policy/acp-routing';
 export class AgentRuntimeService {
   private readonly loadedSessions = new Set<string>();
   private readonly initializedAgents = new Set<string>();
+  private readonly lastStderrByAgent = new Map<
+    string,
+    { text: string; recordedAt: number }
+  >();
 
   constructor(
     private readonly agents: Map<string, AcpAgent>,
@@ -47,6 +51,22 @@ export class AgentRuntimeService {
     this.initializedAgents.add(agent.id);
   }
 
+  recordStderr(agentId: string, text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.lastStderrByAgent.set(agentId, {
+      text: trimmed,
+      recordedAt: Date.now(),
+    });
+  }
+
+  recentErrorHint(agentId: string, since: number): string | undefined {
+    const entry = this.lastStderrByAgent.get(agentId);
+    if (!entry || entry.recordedAt < since) return undefined;
+    if (!isActionableAcpStderr(entry.text)) return undefined;
+    return entry.text;
+  }
+
   async createSession(agent: AcpAgent, cwd: string): Promise<string> {
     await this.ensureInitialized(agent);
     const result = await agent.createSession({ cwd });
@@ -65,4 +85,10 @@ export class AgentRuntimeService {
     });
     this.loadedSessions.add(key);
   }
+}
+
+function isActionableAcpStderr(text: string): boolean {
+  return /ServerOverloaded|Selected model is at capacity|rate limit|capacity|overloaded/i.test(
+    text,
+  );
 }
